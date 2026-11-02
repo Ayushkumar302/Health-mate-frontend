@@ -6,6 +6,7 @@ import DemoBanner from "../components/Header/DemoBanner"
 import Footer from "../components/Footer/Footer"
 import Routers from '@/routes/Routers'
 import MiniCall from '@/components/Video/MiniCall'
+import SymptomFab from '@/components/Symptoms/SymptomFab'
 
 function Layout() {
   const location = useLocation()
@@ -39,6 +40,7 @@ function Layout() {
           <Footer/>
           {/* an active video call follows the user around the site as a floating window */}
           <MiniCall/>
+          <SymptomFab/>
         </div>
     </div>
   )
