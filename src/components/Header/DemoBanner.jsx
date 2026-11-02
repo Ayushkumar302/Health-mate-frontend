@@ -6,7 +6,7 @@ import { DEMO_MODE } from "@/brand";
 import { apiRequest } from "@/utils/api";
 import { formatSpan, useNow } from "@/utils/appointment";
 
-// slim bar for visitors (e.g. interviewers) explaining how to try the demo, and when it resets if it does
+// slim bar for visitors explaining how to try the demo, and when it resets if it does
 function DemoBanner() {
   const { token } = useContext(authContext);
   const { pathname } = useLocation();

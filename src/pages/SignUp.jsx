@@ -239,10 +239,10 @@ function SignUp() {
   );
 }
 
-// portfolio demo: no new accounts, point visitors to the shared demo accounts instead
+// demo: no new accounts, point visitors to the shared demo accounts instead
 function SignupClosed() {
   return (
-    <AuthShell title="Sign-ups are closed" subtitle="This is a portfolio demo, so new accounts can't be created.">
+    <AuthShell title="Sign-ups are closed" subtitle="This is a demo, so new accounts can't be created.">
       <div className="space-y-5">
         <div className="flex gap-3 rounded-2xl bg-muted/60 p-4 text-sm">
           <LockKeyhole className="h-5 w-5 shrink-0 text-primary" />

@@ -16,7 +16,7 @@ import { leaveLabel, upcomingLeave } from '@/utils/timeOff'
 
 const TEST_CARD = '4242 4242 4242 4242'
 
-// portfolio demo: the Stripe test card, so visitors know what to type on the payment page
+// demo: the Stripe test card, so visitors know what to type on the payment page
 const DemoCardHint = () => {
   const [copied, setCopied] = useState(false)
   const copy = () => {

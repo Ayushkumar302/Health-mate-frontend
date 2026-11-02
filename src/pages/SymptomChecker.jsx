@@ -38,7 +38,7 @@ const Segmented = ({ label, options, value, onChange }) => (
   </div>
 );
 
-// not logged in: one click into the demo patient (portfolio demo) or log in / sign up
+// not logged in: one click into the demo patient (demo mode) or log in / sign up
 const LoginGate = () => {
   const { dispatch } = useContext(authContext);
   const location = useLocation();

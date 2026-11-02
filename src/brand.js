@@ -7,7 +7,7 @@ export const BRAND = {
   address: "Bengaluru, India",
 };
 
-// Portfolio demo: sign-ups are closed and visitors use these shared accounts.
+// Demo mode: sign-ups are closed and visitors use these shared accounts.
 // Set VITE_ALLOW_SIGNUPS=true (and ALLOW_SIGNUPS=true on the backend) to open sign-ups again.
 export const DEMO_MODE = import.meta.env.VITE_ALLOW_SIGNUPS !== "true";
 

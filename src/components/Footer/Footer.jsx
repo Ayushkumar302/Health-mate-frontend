@@ -35,7 +35,7 @@ const linkGroups = [
   },
 ]
 
-// in the portfolio demo there is no sign-up page to link to
+// in the demo there is no sign-up page to link to
 const visibleLinks = links => (DEMO_MODE ? links.filter(link => link.path !== "/register") : links)
 
 function Footer() {
