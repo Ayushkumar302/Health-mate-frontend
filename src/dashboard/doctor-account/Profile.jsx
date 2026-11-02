@@ -1,15 +1,20 @@
-/* eslint-disable react/prop-types */
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import  { useState ,useEffect } from 'react'
+import  { useState ,useEffect, useContext } from 'react'
 import { Button } from '@/components/ui/button'
-import {AiOutlineDelete} from 'react-icons/ai'
+import { Camera, Lock, Trash2 } from 'lucide-react'
+import { DEMO_MODE } from '@/brand'
+import Avatar from '@/components/ui/avatar'
+import Spinner from '@/components/ui/spinner'
 import uploadImageToCloudinary from '../../utils/uploadCloudinary'
-import { BASE_URL ,token } from '@/config'
+import { BASE_URL } from '@/config'
+import { authContext } from '@/context/AuthContext'
 import {toast} from 'react-toastify'
 
 const Profile = ({doctorData}) => {
+    const { token } = useContext(authContext)
+    const [uploading, setUploading] = useState(false)
     const [formData , setFormData] = useState({
         name: '',
         email: '',
@@ -19,27 +24,34 @@ const Profile = ({doctorData}) => {
         gender: '',
         specialization:'',
         ticketPrice:0,
+        quickCallFee:'',
+        clinicAddress:'',
         qualifications:[],
         experiences:[],
         timeSlots:[],
+        slotDuration:30,
         about:'',
         photo:null,
     })
 
     useEffect(() => {
+      // fall back to empty values so a brand-new doctor profile doesn't break the form
       setFormData({
-        name: doctorData?.name,
-        email: doctorData?.email,
-        phone: doctorData?.phone,
-        bio: doctorData?.bio,
-        gender: doctorData?.gender,
-        specialization:doctorData?.specialization,
-        ticketPrice:doctorData?.ticketPrice,
-        qualifications:doctorData?.qualifications,
-        experiences:doctorData?.experiences,
-        timeSlots:doctorData?.timeSlots,
-        about:doctorData?.about,
-        photo:doctorData?.photo
+        name: doctorData?.name || '',
+        email: doctorData?.email || '',
+        phone: doctorData?.phone || '',
+        bio: doctorData?.bio || '',
+        gender: doctorData?.gender || '',
+        specialization:doctorData?.specialization || '',
+        ticketPrice:doctorData?.ticketPrice || 0,
+        quickCallFee:doctorData?.quickCallFee || '',
+        clinicAddress:doctorData?.clinicAddress || '',
+        qualifications:doctorData?.qualifications || [],
+        experiences:doctorData?.experiences || [],
+        timeSlots:doctorData?.timeSlots || [],
+        slotDuration:doctorData?.slotDuration || 30,
+        about:doctorData?.about || '',
+        photo:doctorData?.photo || null
 
       })
     
@@ -48,9 +60,8 @@ const Profile = ({doctorData}) => {
 
     
     const handleInputChange = e =>{
-        setFormData({...formData, [e.target.name]: e.target.value})
-        
-
+        const { name, value } = e.target
+        setFormData(prevFormData => ({...prevFormData, [name]: value}))
     }
    
     //reusable function to add item
@@ -61,8 +72,9 @@ const Profile = ({doctorData}) => {
     const handleResuableInputChangeFunc = (key,index,event)=>{
       const {name,value}=event.target
       setFormData(prevFormData =>{
+        // copy the item too, so the previous state is not mutated
         const updateItems = [...prevFormData[key]]
-        updateItems[index][name] = value
+        updateItems[index] = { ...updateItems[index], [name]: value }
         return {...prevFormData, [key]:updateItems}
       
     })
@@ -71,7 +83,7 @@ const Profile = ({doctorData}) => {
   const deleteItem = (key, index) => {
     setFormData((prevFormData) => ({
       ...prevFormData,
-      [key]: prevFormData[key].filter((_, i) => i === index),
+      [key]: prevFormData[key].filter((_, i) => i !== index),
     }));
   };
     const addQualification = e=>{
@@ -123,9 +135,9 @@ const Profile = ({doctorData}) => {
       e.preventDefault()
       addItem('timeSlots',
         {
-          day:'Monday',
+          day:'monday',
           startingTime:'11:00',
-          EndingTime:'05:00',
+          EndingTime:'17:00',
         }
       )
     }
@@ -143,17 +155,27 @@ const Profile = ({doctorData}) => {
 //image profile picture
     const handleFileInputChange = async (event) => {
       const file = event.target.files[0];
-      const data = await uploadImageToCloudinary(file);
-      // console.log(data);
-      setFormData({
-        ...formData,
-        photo: data?.url,
-      });
+      if (!file) return;
+      setUploading(true);
+      try {
+        const data = await uploadImageToCloudinary(file);
+        setFormData(prevFormData => ({
+          ...prevFormData,
+          photo: data?.secure_url || data?.url,
+        }));
+      } catch {
+        toast.error('Photo upload failed, please try again');
+      } finally {
+        setUploading(false);
+      }
     };
 
 
     const updateProfileHandler = async (e) => {
       e.preventDefault();
+      if (uploading) {
+        return toast.info('Please wait for the photo upload to finish');
+      }
       try {
         const res = await fetch(`${BASE_URL}/doctors/${doctorData._id}`, {
           method: "PUT",
@@ -172,13 +194,21 @@ const Profile = ({doctorData}) => {
         toast.error(error.message);
       }
     };
+  // shared demo doctors keep the public profile every visitor sees; schedule and fees stay editable
+  const locked = DEMO_MODE && Boolean(doctorData?.isDemo);
+
   return (
     <div>
-      <h2 className="text-headingColor font-bold text-[24px] leading-9 mb-10">
-        Profile Information
-      </h2>
-      <form>
-        <div className="mb-5">
+      <h2 className="text-xl font-bold">Profile information</h2>
+      <p className="mt-1 text-sm text-muted-foreground">This is what patients see on your public profile.</p>
+      {locked && (
+        <p className="mt-4 flex items-start gap-2 rounded-xl bg-muted/70 px-4 py-3 text-sm text-muted-foreground">
+          <Lock className="mt-0.5 h-4 w-4 shrink-0" />
+          Demo account: name, photo, specialty, bio, about, education, experience and clinic address are locked so every visitor sees the same profile. Phone, fees, appointment length and time slots can be changed.
+        </p>
+      )}
+      <form className="mt-8">
+        <fieldset disabled={locked} className="mb-5 min-w-0">
           <p className="form_label">Name</p>
           <Input
             type="text"
@@ -187,7 +217,7 @@ const Profile = ({doctorData}) => {
             value={formData.name}
             onChange={handleInputChange}
           />
-        </div>
+        </fieldset>
 
         <div className="mb-5">
           <p className="form_label">Email</p>
@@ -214,7 +244,7 @@ const Profile = ({doctorData}) => {
           />
         </div>
 
-        <div className="mb-5">
+        <fieldset disabled={locked} className="mb-5 min-w-0">
           <p className="form_label">Bio</p>
           <Textarea
             type="text"
@@ -222,12 +252,12 @@ const Profile = ({doctorData}) => {
             name="bio"
             value={formData.bio}
             onChange={handleInputChange}
-            maxLength={2000}
+            maxLength={200}
           />
-        </div>
+        </fieldset>
 
         <div className="mb-5">
-          <div className="grid grid-cols-3 gap-5 mb-[30px]">
+          <div className="grid gap-5 sm:grid-cols-3 mb-[30px]">
             <div>
               <p className="form_label">Gender</p>
 
@@ -239,7 +269,7 @@ const Profile = ({doctorData}) => {
                   setFormData({ ...formData, gender: value })
                 }
               >
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger>
                   <SelectValue placeholder="Select" />
                 </SelectTrigger>
                 <SelectContent>
@@ -254,13 +284,14 @@ const Profile = ({doctorData}) => {
               <p className="form_label">Specialization</p>
 
               <Select
+                disabled={locked}
                 name="specialization"
                 value={formData.specialization}
                 onValueChange={(value) =>
                   setFormData({ ...formData, specialization: value })
                 }
               >
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger>
                   <SelectValue placeholder="Select" />
                 </SelectTrigger>
                 <SelectContent>
@@ -300,22 +331,50 @@ const Profile = ({doctorData}) => {
             </div>
 
             <div>
-              <p className="form_label">Ticket Price</p>
+              <p className="form_label">Consultation fee (₹)</p>
               <Input
                 type="number"
                 name="ticketPrice"
                 value={formData.ticketPrice}
-                placeholder="100"
+                placeholder="500"
                 onChange={handleInputChange}
               />
+              <p className="mt-1 text-xs text-muted-foreground">For clinic visits and video consultations</p>
             </div>
           </div>
         </div>
 
-        <div className="mb-5">
+        <div className="mb-5 grid gap-5 sm:grid-cols-[1fr_220px]">
+          <div>
+            <p className="form_label">Clinic address</p>
+            <Input
+              disabled={locked}
+              name="clinicAddress"
+              value={formData.clinicAddress}
+              maxLength={200}
+              placeholder="Clinic name, street, city"
+              onChange={handleInputChange}
+            />
+            <p className="mt-1 text-xs text-muted-foreground">Shown to patients who book a clinic visit</p>
+          </div>
+          <div>
+            <p className="form_label">Quick call fee (₹)</p>
+            <Input
+              type="number"
+              name="quickCallFee"
+              min={0}
+              value={formData.quickCallFee}
+              placeholder={String(Math.max(100, Math.round((Number(formData.ticketPrice) * 0.4) / 10) * 10))}
+              onChange={handleInputChange}
+            />
+            <p className="mt-1 text-xs text-muted-foreground">10 min call, empty = 40% of your fee</p>
+          </div>
+        </div>
+
+        <fieldset disabled={locked} className="mb-5 min-w-0">
           <p className="form_label">Qualifications</p>
           {formData.qualifications?.map((item, index) => (
-            <div key={index}>
+            <div key={index} className="mb-4 rounded-2xl border border-border bg-background/50 p-4">
               <div>
                 <div className="grid grid-cols-2 gap-5">
                   <div>
@@ -365,22 +424,22 @@ const Profile = ({doctorData}) => {
 
                 <button
                   onClick={(e) => deleteQualification(e, index)}
-                  className="bg-red-600 p-2 rounded-full text-white text-[18px] mt-[30px] cursor-pointer"
+                  className="mt-4 inline-flex items-center gap-1 rounded-full bg-destructive/10 px-3 py-1.5 text-sm font-medium text-destructive transition-colors hover:bg-destructive hover:text-destructive-foreground"
                 >
-                  <AiOutlineDelete />
+                  <Trash2 className="h-4 w-4" />
                 </button>
               </div>
             </div>
           ))}
-          <Button onClick={addQualification} className="mt-[30px] rounded-sm">
+          <Button onClick={addQualification} variant="soft" size="sm" className="mt-2">
             Add Qualification
           </Button>
-        </div>
+        </fieldset>
 
-        <div className="mb-5">
+        <fieldset disabled={locked} className="mb-5 min-w-0">
           <p className="form_label mt-2">Experiences</p>
           {formData.experiences?.map((item, index) => (
-            <div key={index}>
+            <div key={index} className="mb-4 rounded-2xl border border-border bg-background/50 p-4">
               <div>
                 <div className="grid grid-cols-2 gap-5">
                   <div>
@@ -430,22 +489,40 @@ const Profile = ({doctorData}) => {
 
                 <button
                   onClick={(e) => deleteExperience(e, index)}
-                  className="bg-red-600 p-2 rounded-full text-white text-[18px] mt-[30px] cursor-pointer"
+                  className="mt-4 inline-flex items-center gap-1 rounded-full bg-destructive/10 px-3 py-1.5 text-sm font-medium text-destructive transition-colors hover:bg-destructive hover:text-destructive-foreground"
                 >
-                  <AiOutlineDelete />
+                  <Trash2 className="h-4 w-4" />
                 </button>
               </div>
             </div>
           ))}
-          <Button onClick={addExperience} className="mt-[30px] rounded-sm">
+          <Button onClick={addExperience} variant="soft" size="sm" className="mt-2">
             Add Experience
           </Button>
-        </div>
+        </fieldset>
 
         <div className="mb-5">
           <p className="form_label mt-2">Time slots</p>
+          <div className="mb-5">
+            <p className="form_label text-[13px]">Appointment length</p>
+            <select
+              name="slotDuration"
+              value={formData.slotDuration}
+              onChange={handleInputChange}
+              className="select-field"
+            >
+              <option value={15}>15 minutes</option>
+              <option value={20}>20 minutes</option>
+              <option value={30}>30 minutes</option>
+              <option value={45}>45 minutes</option>
+              <option value={60}>60 minutes</option>
+            </select>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Your weekly hours are split into appointments of this length.
+            </p>
+          </div>
           {formData.timeSlots?.map((item, index) => (
-            <div key={index}>
+            <div key={index} className="mb-4 rounded-2xl border border-border bg-background/50 p-4">
               <div>
                 <div className="grid grid-cols-2 md:grid-cols-4 mb-[30px] gap-5 items-center">
                   <div>
@@ -454,7 +531,7 @@ const Profile = ({doctorData}) => {
                       name="day"
                       value={item.day}
                       onChange={(e) => handleTimeSlotChange(e, index)}
-                      className="w-[180px] p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="select-field"
                     >
                       <option value="">Select</option>
                       <option value="monday">Monday</option>
@@ -488,21 +565,21 @@ const Profile = ({doctorData}) => {
                   <div className="flex items-center justify-center">
                     <button
                       onClick={(e) => deleteTimeSlot(e, index)}
-                      className="bg-red-600 p-2 rounded-full mt-7 text-white text-[18px] cursor-pointer"
+                      className="mt-7 grid h-10 w-10 place-items-center rounded-full bg-destructive/10 text-destructive transition-colors hover:bg-destructive hover:text-destructive-foreground"
                     >
-                      <AiOutlineDelete />
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
                 </div>
               </div>
             </div>
           ))}
-          <Button onClick={addTimeSlot} className="mt-[30px] rounded-sm">
+          <Button onClick={addTimeSlot} variant="soft" size="sm" className="mt-2">
             Add Slot
           </Button>
         </div>
 
-        <div className="mb-5">
+        <fieldset disabled={locked} className="mb-5 min-w-0">
           <p className="form_label">About</p>
           <Textarea
             type="text"
@@ -510,43 +587,39 @@ const Profile = ({doctorData}) => {
             name="about"
             value={formData.about}
             onChange={handleInputChange}
-            maxLength={100}
+            maxLength={1500}
           />
-        </div>
+        </fieldset>
 
-        <div className="mb-5 flex items-center  gap-3">
-          {formData.photo && (
-            <figure className="w-[60px] h-[60px] rounded-full border-2 border-solid border-primaryColor overflow-hidden">
-              <img
-                src={formData.photo}
-                alt=""
-                className="w-full rounded-full"
-              />
-            </figure>
-          )}
-          <div className="relative w-[130px] h-[50px]">
-            <Input
-              type="file"
-              name="photo"
-              id="customFile"
-              onChange={handleFileInputChange}
-              accept=".jpg, .png"
-              className="absolute top-0 left-0 w-full opacity-0 "
-            />
-            <label
-              htmlFor="customFile"
-              className="absolute top-0 left-0 w-full h-full flex items-center px-3 py-[0.375rem]
-                              text-[15px] leading-6 overflow-hidden bg-[#0066ff46] text-headingColor font-semibold rounded-lg
-                              truncate cursor-pointer"
-            >
-              Upload photo
-            </label>
+        <fieldset disabled={locked} className="mb-5 flex min-w-0 items-center gap-4">
+          <div className="relative">
+            <Avatar src={formData.photo} name={formData.name} className="h-16 w-16" textClassName="text-lg" />
+            {uploading && (
+              <span className="absolute inset-0 grid place-items-center rounded-full bg-background/70">
+                <Spinner />
+              </span>
+            )}
           </div>
-        </div>
+          <label
+            htmlFor="customFile"
+            className={`inline-flex cursor-pointer items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-semibold transition-colors hover:border-primary/50 hover:text-primary ${locked ? "pointer-events-none opacity-50" : ""}`}
+          >
+            <Camera className="h-4 w-4" />
+            {uploading ? "Uploading..." : "Change photo"}
+          </label>
+          <input
+            type="file"
+            name="photo"
+            id="customFile"
+            onChange={handleFileInputChange}
+            accept=".jpg, .jpeg, .png"
+            className="sr-only"
+          />
+        </fieldset>
 
         <div className="mt-7">
-          <Button type="submit" onClick={updateProfileHandler}>
-            Update Profile
+          <Button type="submit" onClick={updateProfileHandler} disabled={uploading}>
+            Save profile
           </Button>
         </div>
       </form>

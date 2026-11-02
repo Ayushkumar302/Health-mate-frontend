@@ -9,27 +9,23 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import uploadImageToCloudinary from "../../utils/uploadCloudinary";
-import { HashLoader } from "react-spinners";
-import { BASE_URL, token } from "../../config";
+import { Camera, Lock } from "lucide-react";
+import Avatar from "@/components/ui/avatar";
+import Spinner from "@/components/ui/spinner";
+import { BASE_URL } from "../../config";
+import { authContext } from "@/context/AuthContext";
+import { DEMO_MODE } from "@/brand";
 import { toast } from "react-toastify";
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 
 const ProfileSetting = ({user}) => {
+  // shared demo patients keep the name and photo doctors and reviews show
+  const locked = DEMO_MODE && Boolean(user.isDemo);
+  const { token } = useContext(authContext);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-
-  useEffect(() => {
-    setFormData({
-    name : user.name,
-    email : user.email,
-    photo : user.photo,
-    gender : user.gender,
-    bloodType : user.bloodType,
-  
-  })
-  }, [user])
-  
 
   const [formData, setFormData] = useState({
     name: "",
@@ -40,17 +36,42 @@ const ProfileSetting = ({user}) => {
     bloodType:"",
   });
 
+  useEffect(() => {
+    setFormData({
+    name : user.name || "",
+    email : user.email || "",
+    password: "",
+    photo : user.photo || null,
+    gender : user.gender || "",
+    bloodType : user.bloodType || "",
+
+  })
+  }, [user])
+
   const handleInputChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData(prevFormData => ({ ...prevFormData, [name]: value }));
   };
   const handleFileInputChange = async (event) => {
     const file = event.target.files[0];
-    const data = await uploadImageToCloudinary(file);
-    setSelectedFile(data.url);
-    setFormData({ ...formData, photo: data.url });
+    if (!file) return;
+    setUploading(true);
+    try {
+      const data = await uploadImageToCloudinary(file);
+      const photoUrl = data.secure_url || data.url;
+      setSelectedFile(file);
+      setFormData(prevFormData => ({ ...prevFormData, photo: photoUrl }));
+    } catch {
+      toast.error("Photo upload failed, please try again");
+    } finally {
+      setUploading(false);
+    }
   };
   const submitHandler = async (event) => {
     event.preventDefault();
+    if (uploading) {
+      return toast.info("Please wait for the photo upload to finish");
+    }
     setLoading(true);
     try {
       const res = await fetch(`${BASE_URL}/users/${user._id}`, {
@@ -76,66 +97,105 @@ const ProfileSetting = ({user}) => {
   };
 
   return (
-    <div className="mt-3 md:mt-5">
-      {" "}
-      <form onSubmit={submitHandler}>
-        <div className="mb-5">
-          <Input
-            type="text"
-            placeholder="Full name"
-            name="name"
-            value={formData.name}
-            onChange={handleInputChange}
-          />
-        </div>
-        <div className="mb-5">
-          <Input
-            type="email"
-            placeholder="Your email"
-            name="email"
-            value={formData.email}
-            onChange={handleInputChange}
-            aria-readonly
-            readOnly
-          />
-        </div>
-        <div className="mb-5">
-          <Input
-            type="password"
-            placeholder="Your password"
-            name="password"
-            value={formData.password}
-            onChange={handleInputChange}
-            
-            
-          />
-        </div>
-        <div className="mb-5">
-          <Input
-            type="text"
-            placeholder="Your Blood Type"
-            name="bloodType"
-            value={formData.bloodType}
-            onChange={handleInputChange}
-          />
-        </div>
+    <div className="card-surface p-6 sm:p-8">
+      <h2 className="text-xl font-bold">Profile settings</h2>
+      <p className="mt-1 text-sm text-muted-foreground">Keep your details up to date for your doctors.</p>
 
+      {locked && (
+        <p className="mt-4 flex items-start gap-2 rounded-xl bg-muted/70 px-4 py-3 text-sm text-muted-foreground">
+          <Lock className="mt-0.5 h-4 w-4 shrink-0" />
+          Demo account: the name and photo are locked so every visitor sees the same patient. Everything else can be changed.
+        </p>
+      )}
+      <form onSubmit={submitHandler} className="mt-6 space-y-5">
+        {/* photo */}
+        <fieldset disabled={locked} className="flex min-w-0 items-center gap-4">
+          <div className="relative">
+            <Avatar src={formData.photo} name={formData.name} className="h-16 w-16" textClassName="text-lg" />
+            {uploading && (
+              <span className="absolute inset-0 grid place-items-center rounded-full bg-background/70">
+                <Spinner />
+              </span>
+            )}
+          </div>
+          <label
+            htmlFor="customFile"
+            className={`inline-flex cursor-pointer items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-semibold transition-colors hover:border-primary/50 hover:text-primary ${locked ? "pointer-events-none opacity-50" : ""}`}
+          >
+            <Camera className="h-4 w-4" />
+            {uploading ? "Uploading..." : selectedFile ? selectedFile.name : "Change photo"}
+          </label>
+          <input
+            type="file"
+            name="photo"
+            id="customFile"
+            onChange={handleFileInputChange}
+            accept=".jpg, .jpeg, .png"
+            className="sr-only"
+          />
+        </fieldset>
 
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
-
-
+        <div className="grid gap-5 sm:grid-cols-2">
           <div>
-            <label className="text-headingColor font-bold text-[16px] leading-7">
-              Gender:
-            </label>
+            <label htmlFor="settings-name" className="form_label">Full name</label>
+            <Input
+              id="settings-name"
+              type="text"
+              placeholder="Full name"
+              name="name"
+              value={formData.name}
+              onChange={handleInputChange}
+              disabled={locked}
+            />
+          </div>
+          <div>
+            <label htmlFor="settings-email" className="form_label">Email</label>
+            <Input
+              id="settings-email"
+              type="email"
+              name="email"
+              value={formData.email}
+              aria-readonly
+              readOnly
+              disabled
+            />
+          </div>
+          {/* the shared demo accounts keep their password */}
+          {!DEMO_MODE && (
+          <div>
+            <label htmlFor="settings-password" className="form_label">New password</label>
+            <Input
+              id="settings-password"
+              type="password"
+              placeholder="Leave empty to keep current"
+              name="password"
+              value={formData.password}
+              onChange={handleInputChange}
+              autoComplete="new-password"
+            />
+          </div>
+          )}
+          <div>
+            <label htmlFor="settings-blood" className="form_label">Blood type</label>
+            <Input
+              id="settings-blood"
+              type="text"
+              placeholder="e.g. B+"
+              name="bloodType"
+              value={formData.bloodType}
+              onChange={handleInputChange}
+            />
+          </div>
+          <div>
+            <label className="form_label">Gender</label>
             <Select
               name="gender"
               value={formData.gender}
               onValueChange={(value) =>
-                setFormData({ ...formData, gender: value })
+                setFormData(prev => ({ ...prev, gender: value }))
               }
             >
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger>
                 <SelectValue placeholder="Select" />
               </SelectTrigger>
               <SelectContent>
@@ -146,43 +206,14 @@ const ProfileSetting = ({user}) => {
             </Select>
           </div>
         </div>
-        <div className="mb-5 flex items-center gap-3">
-          {formData.photo && (
-            <figure
-              className="w-[60px] h-[60px] rounded-full border-2
-        border-solid border-primaryColor overflow-hidden"
-            >
-              <img src={formData.photo} alt="" className="w-full rounded-full" />
-            </figure>
-          )}
-          <div className="relative w-[130px] h-[50px]">
-            <Input
-              type="file"
-              name="photo"
-              id="customFile"
-              onChange={handleFileInputChange}
-              accept=".jpg, .png"
-              className="absolute top-0 left-0 w-full opacity-0 "
-            />
-            <label
-              htmlFor="customFile"
-              className="absolute top-0 left-0 w-full h-full flex items-center px-3 py-[0.375rem]
-          text-[15px] leading-6 overflow-hidden bg-[#0066ff46] text-headingColor font-semibold rounded-lg
-          truncate cursor-pointer"
-            >
-              {selectedFile? selectedFile.name : "upload Photo"}
-            </label>
-          </div>
-        </div>
-        <div className="mt-7">
-          <Button
-            disabled={loading && true}
-            type="submit"
-            className="w-full rounded-md py-3"
-          >
-            {loading ? <HashLoader size={25} color="#ffffff" /> : "Update"}
-          </Button>
-        </div>
+
+        <Button
+          disabled={loading}
+          type="submit"
+          className="w-full sm:w-auto"
+        >
+          {loading ? <Spinner className="text-primary-foreground" /> : "Save changes"}
+        </Button>
       </form>
     </div>
   );

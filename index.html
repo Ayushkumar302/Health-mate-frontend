@@ -2,9 +2,23 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Health Mate</title>
+    <meta name="description" content="Medora - find trusted doctors, book appointment slots and pay online in minutes." />
+    <meta name="theme-color" content="#3d7fb8" />
+    <title>Medora · Healthcare, beautifully simple</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <script>
+      // light theme first; only use dark if the visitor picked it before (avoids a white flash for them)
+      (function () {
+        try {
+          var dark = localStorage.getItem("theme") === "dark";
+          if (dark) document.documentElement.classList.add("dark");
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

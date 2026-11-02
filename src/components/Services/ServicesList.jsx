@@ -1,12 +1,19 @@
-import React from "react";
 import { services } from "../../assets/data/services";
 import ServiceCard from "./ServiceCard";
+import { Stagger, StaggerItem } from "../Motion/Reveal";
 
-function ServicesList() {
+// limit: show only the first few services (used on the home page)
+function ServicesList({ limit }) {
+  const items = limit ? services.slice(0, limit) : services;
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 lg:gap-[30px] mt-[30px] lg:mt-[55px] ">
-      {services.map((item, index) => <ServiceCard item={item} index={index} key={index} />)}
-    </div>
+    <Stagger className="mt-12 grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+      {items.map(item => (
+        <StaggerItem key={item.name}>
+          <ServiceCard item={item} />
+        </StaggerItem>
+      ))}
+    </Stagger>
   );
 }
 

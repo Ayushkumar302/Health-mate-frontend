@@ -2,118 +2,190 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Theme tokens: HSL values without hsl() so Tailwind can add opacity (bg-primary/10 etc.) */
 @layer base {
+  /* "Ocean Calm" theme: airy blue-white, ocean blue, soft mint */
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
+    --background: 206 53% 97%;
+    --foreground: 212 32% 17%;
     --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
+    --card-foreground: 212 32% 17%;
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 240 5.9% 10%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 240 10% 3.9%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    --radius: 0.5rem;
+    --popover-foreground: 212 32% 17%;
+    --primary: 208 52% 44%;
+    --primary-deep: 210 55% 28%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 206 45% 94%;
+    --secondary-foreground: 212 32% 17%;
+    --muted: 206 45% 94%;
+    --muted-foreground: 212 15% 40%;
+    --accent: 206 60% 94%;
+    --accent-foreground: 208 52% 30%;
+    --destructive: 2 65% 52%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 158 50% 36%;
+    --border: 206 32% 88%;
+    --input: 206 28% 84%;
+    --ring: 208 52% 44%;
+
+    /* soft mint used for highlights */
+    --highlight: 164 42% 44%;
+    --brand-cyan: 192 55% 42%;
+    --brand-violet: 228 40% 58%;
+    --brand-amber: 38 90% 50%;
+    --brand-rose: 352 62% 58%;
+
+    --shadow-color: 212 40% 30%;
+    --radius: 0.85rem;
   }
+
   .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 5.9% 10%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+    --background: 215 36% 9%;
+    --foreground: 206 40% 95%;
+    --card: 215 30% 12%;
+    --card-foreground: 206 40% 95%;
+    --popover: 215 30% 13%;
+    --popover-foreground: 206 40% 95%;
+    --primary: 208 56% 68%;
+    --primary-deep: 210 45% 28%;
+    --primary-foreground: 215 36% 9%;
+    --secondary: 215 25% 16%;
+    --secondary-foreground: 206 40% 95%;
+    --muted: 215 25% 16%;
+    --muted-foreground: 210 15% 68%;
+    --accent: 210 30% 18%;
+    --accent-foreground: 208 56% 80%;
+    --destructive: 2 60% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 158 40% 55%;
+    --border: 215 22% 20%;
+    --input: 215 22% 24%;
+    --ring: 208 56% 68%;
+
+    --highlight: 164 40% 60%;
+    --brand-cyan: 190 45% 60%;
+    --brand-violet: 228 40% 72%;
+    --brand-amber: 40 85% 62%;
+    --brand-rose: 352 55% 68%;
+
+    --shadow-color: 215 50% 3%;
   }
 }
+
 @layer base {
   * {
     @apply border-border;
   }
+  html {
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+  }
   body {
+    @apply bg-background text-foreground font-sans antialiased;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+  ::selection {
+    @apply bg-highlight/25 text-foreground;
+  }
+  section {
+    @apply py-16 lg:py-24;
+  }
+  /* framer-motion leaves will-change: transform behind after an animation, which makes
+     Chrome paint that element as a bitmap and the text looks blurry on 1x screens */
+  [style*="will-change"] {
+    will-change: auto !important;
+  }
+  /* native inputs (date/time pickers, selects) follow the theme */
+  .dark input,
+  .dark select,
+  .dark textarea {
+    color-scheme: dark;
+  }
+  select {
     @apply bg-background text-foreground;
   }
-
-  section {
-    /* @apply py-[75px]; */
-    @apply pt-[75px]
-  }
 }
+
 @layer components {
   .container {
-    @apply px-[20px] py-[20px] max-w-[1170px] mx-auto;
-    /* @apply px-[20px] py-[20px] max-w-[1170px] m-auto; */
-    /* @apply max-w-full w-[1440px] px-5 mx-auto */
+    @apply w-full max-w-[1200px] mx-auto px-4 sm:px-6;
   }
 
   .heading {
-    @apply text-[44px] leading-[54px] font-[700] text-headingColor;
+    @apply text-3xl md:text-[44px] md:leading-[1.15] font-extrabold tracking-tight text-foreground;
   }
 
   .text__para {
-  @apply text-[16px] leading-[25px] font-[400] text-textColor mt-[18px];
+    @apply text-base leading-7 text-muted-foreground mt-4;
+  }
+
+  .form_label {
+    @apply block text-sm font-semibold text-foreground mb-2;
+  }
+
+  /* small pill above section titles */
+  .eyebrow {
+    @apply inline-flex items-center gap-2 rounded-full border border-highlight/25 bg-highlight/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-highlight;
+  }
+
+  /* highlighted words in headings (kept as a class name so it is easy to restyle) */
+  .gradient-text {
+    @apply bg-gradient-to-r from-primary to-highlight bg-clip-text text-transparent;
+  }
+
+  /* frosted glass surface */
+  .glass {
+    @apply bg-card/70 backdrop-blur-xl border border-border/60;
+  }
+
+  .card-surface {
+    @apply rounded-2xl border border-border bg-card shadow-soft;
+  }
+
+  .card-hover {
+    @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-panelShadow hover:border-primary/30;
+  }
+
+  /* faint dotted grid used behind hero sections */
+  .bg-grid {
+    background-image: radial-gradient(hsl(var(--foreground) / 0.05) 1px, transparent 1px);
+    background-size: 22px 22px;
+  }
+
+  .skeleton {
+    @apply rounded-md bg-gradient-to-r from-muted via-secondary to-muted bg-[length:200%_100%] animate-shimmer;
+  }
+
+  /* native select styled like the other inputs */
+  .select-field {
+    @apply h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/40;
+  }
 }
 
-
-  .header {
-    @apply bg-gradient-to-r from-[#e0f7ff] to-[#fdf2e9];
-  }
-
-  .hero__section {
-    @apply bg-gradient-to-r from-[#e0f7ff] to-[#fdf2e9];
-  }
-  .form_label{
-    @apply text-textColor font-semibold text-[16px] mb-2;
-  }
-  .doctor-card {
-    @apply width: 100% max-width: 300px height: auto;
-  }
-  
-  
+/* pause the testimonial marquee on hover */
+.marquee:hover .animate-marquee {
+  animation-play-state: paused;
 }
 
-@media only screen and (max-width: 1024px) {
-  .container {
-    @apply w-full;
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
   }
-  section {
-    @apply py-[35px];
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
 
-@media only screen and (max-width: 768px) {
-  .heading {
-    @apply text-[26px];
+/* scrollable tab rows without a visible scrollbar */
+@layer utilities {
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
   }
 }

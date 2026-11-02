@@ -1,7 +1,8 @@
-import React, { useState } from "react";
-import { Link} from "react-router-dom";
-import { useNavigate } from "react-router-dom";
-import SignUpImg from "../assets/images/signup.gif";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
+import { ArrowRight, BadgeCheck, Camera, LockKeyhole } from "lucide-react";
+import { DEMO_ACCOUNTS, DEMO_MODE } from "@/brand";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -11,47 +12,62 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import Avatar from "@/components/ui/avatar";
+import Spinner from "@/components/ui/spinner";
+import AuthShell from "@/components/Auth/AuthShell";
+import RoleSwitch from "@/components/Auth/RoleSwitch";
 import uploadImageToCloudinary from "../utils/uploadCloudinary";
-import { HashLoader } from "react-spinners";
 import { BASE_URL } from "../config";
 import { toast } from "react-toastify";
 
 function SignUp() {
-
-  const [selectedFile, setSelectedFile] = useState(null);
   const [previewURL, setPreviewURL] = useState('');
   const [loading , setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const navigate = useNavigate();
- 
-
 
   const [formData , setFormData] = useState(
     {
       name: "",
       email: '',
       password: '',
-      photo:selectedFile,
+      photo: null,
       role: 'patient',
       gender:'',
-
+      registrationNumber:'',
     })
 
     const handleInputChange = e=>{
-      setFormData({...formData, [e.target.name]: e.target.value})
+      const { name, value } = e.target
+      setFormData(prevFormData => ({...prevFormData, [name]: value}))
     }
     const handleFileInputChange = async event => {
       const file = event.target.files[0]
-      const data = await uploadImageToCloudinary(file)
-      setPreviewURL(data.url)
-      setSelectedFile(data.url)
-      setFormData({...formData, photo:data.url})
-      
-      
-      
-     
+      if (!file) return
+      setUploading(true)
+      try {
+        const data = await uploadImageToCloudinary(file)
+        const photoUrl = data.secure_url || data.url
+        setPreviewURL(photoUrl)
+        // use the latest form state, the user may have typed while the photo was uploading
+        setFormData(prevFormData => ({...prevFormData, photo:photoUrl}))
+      } catch {
+        toast.error("Photo upload failed, please try again")
+      } finally {
+        setUploading(false)
+      }
     }
     const submitHandler = async (event) => {
       event.preventDefault();
+      if (uploading) {
+        return toast.info("Please wait for the photo upload to finish");
+      }
+      const isDoctor = formData.role === "doctor";
+      if (isDoctor && !formData.registrationNumber.trim()) {
+        return toast.error("Please enter your medical registration number");
+      }
+      // the registration number is only sent for doctors (undefined is left out of the JSON)
+      const payload = isDoctor ? formData : { ...formData, registrationNumber: undefined };
       setLoading(true);
       try {
         const res = await fetch(`${BASE_URL}/auth/register`, {
@@ -59,17 +75,19 @@ function SignUp() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify(formData),
+          body: JSON.stringify(payload),
         });
-        const { message } = await res.json();
+        const { message, data } = await res.json();
 
         if (!res.ok) {
           throw new Error(message);
         }
         setLoading(false);
-        toast.success(message);
-        navigate("/login");
-        
+        // doctors get a longer message explaining the verification step
+        toast.success(message, isDoctor ? { autoClose: 6000 } : undefined);
+        // the account works once the emailed link is clicked
+        navigate("/check-email", { state: { email: formData.email, previewUrl: data?.previewUrl } });
+
       } catch (err) {
         toast.error(err.message);
         setLoading(false);
@@ -78,158 +96,181 @@ function SignUp() {
 
 
   return (
-    <section className="px-5 xl:px-0">
-      <div className="max-w-[1170px] mx-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-2">
-          {/* img */}
-          <div className="hidden lg:block bg-primaryColor rounded-l-lg">
-            <figure className="rounded-l-lg">
-              <img
-                src={SignUpImg}
-                alt="Sign up"
-                className="w-full rounded-l-lg"
-              />
-            </figure>
+    <AuthShell title="Create your account" subtitle="It takes less than a minute. No credit card needed.">
+      <form onSubmit={submitHandler} className="space-y-5">
+        <RoleSwitch
+          value={formData.role}
+          onChange={role => setFormData(prev => ({ ...prev, role }))}
+        />
+
+        <div className="grid gap-5 sm:grid-cols-2">
+          <div>
+            <label htmlFor="name" className="form_label">Full name</label>
+            <Input
+              id="name"
+              type="text"
+              placeholder="Jane Doe"
+              name="name"
+              value={formData.name}
+              onChange={handleInputChange}
+              autoComplete="name"
+              required
+            />
           </div>
-          {/* form */}
-          <div className="rounded-l-lg lg:pl-16 py-10">
-            <h3 className="text-headingColor text-[22px] leading-9 font-bold mb-10">
-              Create an <span className="text-primaryColor">account</span>
-            </h3>
-            <form onSubmit={submitHandler}>
-              <div className="mb-5">
-                <Input
-                  type="text"
-                  placeholder="Full name"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                />
-              </div>
-              <div className="mb-5">
-                <Input
-                  type="email"
-                  placeholder="Your email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                />
-              </div>
-              <div className="mb-5">
-                <Input
-                  type="password"
-                  placeholder="Your password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleInputChange}
-                  required
-                />
-              </div>
-
-              <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <label className="text-headingColor font-bold text-[16px] leading-7">
-                    Are you a:
-                  </label>
-                  <Select
-                    name="role"
-                    value={formData.role}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, role: value })
-                    }
-                  >
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="Select" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="patient">Patient</SelectItem>
-                      <SelectItem value="doctor">Doctor</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <label className="text-headingColor font-bold text-[16px] leading-7">
-                    Gender:
-                  </label>
-                  <Select
-                    name="gender"
-                    value={formData.gender}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, gender: value })
-                    }
-                  >
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="Select" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="male">Male</SelectItem>
-                      <SelectItem value="female">Female</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="mb-5 flex items-center gap-3">
-                {selectedFile && (
-                  <figure
-                    className="w-[60px] h-[60px] rounded-full border-2
-                  border-solid border-primaryColor overflow-hidden"
-                  >
-                    <img
-                      src={previewURL}
-                      alt=""
-                      className="w-full rounded-full"
-                    />
-                  </figure>
-                )}
-                <div className="relative w-[130px] h-[50px]">
-                  <Input
-                    type="file"
-                    name="photo"
-                    id="customFile"
-                    onChange={handleFileInputChange}
-                    accept=".jpg, .png"
-                    className="absolute top-0 left-0 w-full opacity-0 "
-                  />
-                  <label
-                    htmlFor="customFile"
-                    className="absolute top-0 left-0 w-full h-full flex items-center px-3 py-[0.375rem]
-                    text-[15px] leading-6 overflow-hidden bg-[#0066ff46] text-headingColor font-semibold rounded-lg
-                    truncate cursor-pointer"
-                  >
-                    Upload photo
-                  </label>
-                </div>
-              </div>
-              <div className="mt-7">
-                <Button
-                  disabled={loading && true}
-                  type="submit"
-                  className="w-full rounded-md py-3"
-                >
-                  {loading ? (
-                    <HashLoader size={35} color="#ffffff" />
-                  ) : (
-                    "Sign up"
-                  )}
-                </Button>
-              </div>
-              <p className="mt-5 text-textColor text-center">
-                Already have an account?{" "}
-                <Link
-                  to="/login"
-                  className="font-medium text-primaryColor ml-1"
-                >
-                  Login
-                </Link>
-              </p>
-            </form>
+          <div>
+            <label className="form_label">Gender</label>
+            <Select
+              name="gender"
+              value={formData.gender}
+              onValueChange={(value) => setFormData(prev => ({ ...prev, gender: value }))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="male">Male</SelectItem>
+                <SelectItem value="female">Female</SelectItem>
+                <SelectItem value="other">Other</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
-      </div>
-    </section>
+
+        <div>
+          <label htmlFor="email" className="form_label">Email</label>
+          <Input
+            id="email"
+            type="email"
+            placeholder="you@example.com"
+            name="email"
+            value={formData.email}
+            onChange={handleInputChange}
+            autoComplete="email"
+            required
+          />
+        </div>
+
+        <div>
+          <label htmlFor="password" className="form_label">Password</label>
+          <Input
+            id="password"
+            type="password"
+            placeholder="8+ characters with a letter and a number"
+            name="password"
+            value={formData.password}
+            onChange={handleInputChange}
+            autoComplete="new-password"
+            minLength={6}
+            required
+          />
+        </div>
+
+        {/* doctors are verified with their registration number before they are listed */}
+        <AnimatePresence initial={false}>
+          {formData.role === "doctor" && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="overflow-hidden"
+            >
+              <label htmlFor="registrationNumber" className="form_label flex items-center gap-2">
+                <BadgeCheck className="h-4 w-4 text-primary" /> Medical registration number
+              </label>
+              <Input
+                id="registrationNumber"
+                type="text"
+                placeholder="State medical council / NMC number"
+                name="registrationNumber"
+                value={formData.registrationNumber}
+                onChange={handleInputChange}
+                required
+              />
+              <p className="mt-2 text-xs text-muted-foreground">
+                We verify this number before your profile is listed, usually within 2 days.
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* photo upload with live preview */}
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            {previewURL ? (
+              <img src={previewURL} alt="" className="h-16 w-16 rounded-full object-cover ring-2 ring-primary/40" />
+            ) : (
+              <Avatar name={formData.name || "?"} className="h-16 w-16" textClassName="text-lg" />
+            )}
+            {uploading && (
+              <span className="absolute inset-0 grid place-items-center rounded-full bg-background/70">
+                <Spinner />
+              </span>
+            )}
+          </div>
+          <label
+            htmlFor="customFile"
+            className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-semibold transition-colors hover:border-primary/50 hover:text-primary"
+          >
+            <Camera className="h-4 w-4" />
+            {uploading ? "Uploading..." : previewURL ? "Change photo" : "Upload photo"}
+          </label>
+          <input
+            type="file"
+            name="photo"
+            id="customFile"
+            onChange={handleFileInputChange}
+            accept=".jpg, .jpeg, .png"
+            className="sr-only"
+          />
+        </div>
+
+        <Button disabled={loading} type="submit" size="lg" className="w-full">
+          {loading ? <Spinner className="text-primary-foreground" /> : "Create account"}
+        </Button>
+
+        <p className="text-center text-sm text-muted-foreground">
+          Already have an account?{" "}
+          <Link to="/login" className="font-semibold text-primary hover:underline">
+            Log in
+          </Link>
+        </p>
+      </form>
+    </AuthShell>
   );
 }
 
-export default SignUp;
+// portfolio demo: no new accounts, point visitors to the shared demo accounts instead
+function SignupClosed() {
+  return (
+    <AuthShell title="Sign-ups are closed" subtitle="This is a portfolio demo, so new accounts can't be created.">
+      <div className="space-y-5">
+        <div className="flex gap-3 rounded-2xl bg-muted/60 p-4 text-sm">
+          <LockKeyhole className="h-5 w-5 shrink-0 text-primary" />
+          <p className="text-muted-foreground">
+            To keep the demo safe from spam and fake doctor accounts, registration is turned off. You can explore everything
+            with the ready-made accounts below.
+          </p>
+        </div>
+        <ul className="divide-y divide-border rounded-2xl border border-border">
+          {DEMO_ACCOUNTS.map(account => (
+            <li key={account.role} className="flex items-center justify-between gap-3 p-4 text-sm">
+              <div>
+                <p className="font-semibold">{account.label}</p>
+                <p className="text-xs text-muted-foreground">{account.email} · {account.password}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+        <Link to="/login" className="block">
+          <Button size="lg" className="w-full">
+            Go to login <ArrowRight className="h-4 w-4" />
+          </Button>
+        </Link>
+      </div>
+    </AuthShell>
+  );
+}
+
+export default function SignUpPage() {
+  return DEMO_MODE ? <SignupClosed /> : <SignUp />;
+}

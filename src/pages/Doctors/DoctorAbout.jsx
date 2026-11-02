@@ -1,72 +1,52 @@
-/* eslint-disable react/prop-types */
+import { Briefcase, GraduationCap } from 'lucide-react'
 import { formatDate } from '@/utils/formatDate'
-import React from 'react'
 
-function DoctorAbout({name , about , experiences, qualifications})  {
+const dateRange = item =>
+  [item.startingDate && formatDate(item.startingDate), item.endingDate ? formatDate(item.endingDate) : 'Present']
+    .filter(Boolean)
+    .join(' – ')
+
+// vertical timeline used for both education and experience
+const Timeline = ({ items, icon: Icon, title, subtitle }) => (
+  <ol className='relative mt-5 space-y-6 border-l border-border pl-8'>
+    {items.map((item, index) => (
+      <li key={index} className='relative'>
+        <span className='absolute -left-[45px] grid h-8 w-8 place-items-center rounded-full border border-primary/30 bg-card text-primary'>
+          <Icon className='h-4 w-4' />
+        </span>
+        <p className='text-xs font-semibold uppercase tracking-wider text-primary'>{dateRange(item)}</p>
+        <p className='mt-1 font-bold text-foreground'>{title(item) || '—'}</p>
+        <p className='text-sm text-muted-foreground'>{subtitle(item)}</p>
+      </li>
+    ))}
+  </ol>
+)
+
+function DoctorAbout({ name, about, experiences, qualifications }) {
   return (
-    <div>
+    <div className='space-y-10'>
         <div>
-            <h3 className='text-[20px] leading-[20px] text-headingColor font-semibold
-            flex items-center gap-2'>
-                About of
-                <span className='text-irisBlueColor font-bold text-[24px] leading-9 ' >{name}</span>
+            <h3 className='text-xl font-bold'>
+                About <span className='gradient-text'>{name}</span>
             </h3>
-            <p className="text__para">
-                {about}
+            <p className='text__para whitespace-pre-line'>
+                {about || 'This doctor has not added an introduction yet.'}
             </p>
-        </div> 
-
-        <div className='mt-12'>
-            <h3 className='text-[20px] leading-[20px] text-headingColor font-semibold'
-            >Education
-            </h3>
-            <ul className='pt-4 md:p-5'>
-
-            {qualifications?.map((item,index)=>
-            <li key={index} className='flex flex-col sm:flex-row sm:justify-between sm:items-end md:gap-5 mb-[30px]'>
-            <div>
-            <span className='text-irisBlueColor text-[15px] left-6 font-semibold'>
-                  {formatDate(item.startingDate)} - {formatDate(item.endingDate)}
-
-
-              </span>
-              <p className='text-[16px] leading-6 font-medium text-textColor'>{item.degree}</p> 
-            </div>
-            <p className='text-[14px] leading-5 font-medium text-textColor'>{item.university}</p> 
-                                
-          </li>)}
-
-                
-
-              
-
-            </ul>
         </div>
 
+        {qualifications?.length > 0 && (
+          <div>
+              <h3 className='text-xl font-bold'>Education</h3>
+              <Timeline items={qualifications} icon={GraduationCap} title={item => item.degree} subtitle={item => item.university} />
+          </div>
+        )}
 
-
-        <div className='mt-12'>
-        <h3 className='text-[20px] leading-[20px] text-headingColor font-semibold'
-            >Experience
-            </h3>
-            <ul className='grid sm:grid-cols-2 gap-[30px] pt-4 md:p-5'>
-              {experiences?.map((item,index)=>
-               <li key={index} className='rounded p-4 bg-[#fff9ea]'>
-               <span className='text-yellowColor text-[15px] leading-6 font-semibold'>
-               {formatDate(item.startingDate)} - {formatDate(item.endingDate)}  
-               <p className='text-[16px] leading-6 font-medium text-textColor'>{item.position}</p> 
-             <p className='text-[14px] leading-5 font-medium text-textColor'>{item.hospital}</p> 
-
-               
-               </span>
-           </li>)}
-
-               
-                
-            </ul>
-        </div> 
-
-
+        {experiences?.length > 0 && (
+          <div>
+              <h3 className='text-xl font-bold'>Experience</h3>
+              <Timeline items={experiences} icon={Briefcase} title={item => item.position} subtitle={item => item.hospital} />
+          </div>
+        )}
     </div>
   )
 }

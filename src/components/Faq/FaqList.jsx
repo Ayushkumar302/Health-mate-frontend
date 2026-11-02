@@ -1,14 +1,14 @@
-import React from 'react'
 import { faqs } from '@/assets/data/faqs'
 import FaqItem from './FaqItem'
+import { Accordion } from '@/components/ui/accordion'
 
 function FaqList() {
   return (
-    <ul className='mt-[38px]'>
-        {faqs.map((item , index)=>(
-            <FaqItem key={index} item={item} />
+    <Accordion type="single" collapsible defaultValue="faq-0" className="mt-8 flex flex-col gap-3">
+        {faqs.map((item, index) => (
+            <FaqItem key={item.question} item={item} value={`faq-${index}`} />
         ))}
-    </ul>
+    </Accordion>
   )
 }
 

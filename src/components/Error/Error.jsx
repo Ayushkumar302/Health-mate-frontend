@@ -1,9 +1,12 @@
-import React from 'react'
+import { AlertTriangle } from 'lucide-react'
 
-const Error = ({errMessage}) => {
+const Error = ({ errMessage = 'Something went wrong. Please try again.' }) => {
   return (
-    <div className='flex items-center justify-center w-full h-full'>
-        <h3 className='text-headingColor text-[20px] leading-[30px] font-semibold'>{errMessage}</h3>
+    <div className='card-surface mx-auto flex max-w-md flex-col items-center gap-3 p-8 text-center'>
+        <span className='grid h-12 w-12 place-items-center rounded-2xl bg-destructive/10 text-destructive'>
+          <AlertTriangle className='h-6 w-6' />
+        </span>
+        <h3 className='text-base font-semibold text-foreground'>{errMessage}</h3>
     </div>
   )
 }

@@ -1,54 +1,76 @@
-import React from 'react'
 import { Link } from 'react-router-dom'
-import { MoveRight } from 'lucide-react'
-import starIcon from '../../assets/images/Star.png'
+import { ArrowUpRight, Building2, Star } from 'lucide-react'
+import Avatar from '../ui/avatar'
+import { formatPrice } from '@/utils/formatPrice'
 
-function DoctorCard({doctor}) {
-    const {name ,totalRating, avgRating , photo , specialization , experiences} = doctor
+function DoctorCard({ doctor }) {
+    const { name, totalRating, averageRating, photo, specialization, experiences, ticketPrice } = doctor
+    const hospital = experiences?.[0]?.hospital
+
   return (
-    <div className='p-3 lg:p-5 '>
-        <div >
-            <img   src={photo} alt="" />
+    <Link
+      to={`/doctors/${doctor._id}`}
+      className='group card-surface card-hover flex h-full flex-col overflow-hidden'
+    >
+        <div className='relative aspect-[4/3] overflow-hidden bg-muted'>
+            {photo ? (
+              <img
+                src={photo}
+                alt={name}
+                className='h-full w-full object-cover object-[50%_20%] transition-transform duration-700 group-hover:scale-105'
+              />
+            ) : (
+              <div className='grid h-full place-items-center'>
+                <Avatar name={name} className='h-24 w-24 shadow-soft' textClassName='text-2xl' />
+              </div>
+            )}
+            {specialization && (
+              <span className='glass absolute left-3 top-3 rounded-full px-3 py-1 text-xs font-semibold capitalize text-foreground'>
+                {specialization}
+              </span>
+            )}
         </div>
 
-        <h2 className='text-[26px] leading-[30px] lg:text-[26px] lg:leading-9  text-headingColor font-[700]
-        mt-3 lg:mt-5'>{name}</h2>
+        <div className='flex flex-1 flex-col p-5'>
+            <div className='flex items-start justify-between gap-3'>
+                <h3 className='text-lg font-bold leading-snug text-foreground'>{name}</h3>
+                <span className='flex shrink-0 items-center gap-1 rounded-full bg-brand-amber/15 px-2 py-0.5 text-xs font-bold text-brand-amber'>
+                    <Star className='h-3.5 w-3.5 fill-current' />
+                    {averageRating ? averageRating.toFixed(1) : 'New'}
+                    {totalRating > 0 && <span className='font-medium text-muted-foreground'>({totalRating})</span>}
+                </span>
+            </div>
 
-        <div className=' mt-2 lg:mt-4 flex items-center justify-between'>
-            <span className='bg-[#ccf0f3] text-irisBlueColor py-1 px-2 lg:py-2 lg:px-6 text-[12px] leading-4
-            lg:text-[16px] lg:lea7 font-semibold rounded '>
-                {specialization}
-            </span>
+            <p className='mt-2 flex items-center gap-1.5 text-sm text-muted-foreground'>
+                <Building2 className='h-4 w-4 shrink-0' />
+                <span className='truncate'>{hospital || 'Independent practice'}</span>
+            </p>
 
-            <div className=' flex items-center gap-[6px]'>
-            <span className=' flex items-center gap-[6px] text-[14px] leading-6 lg:text-[16px] lg:leading-7 font-semibold
-             text-headingColor'>
-                <img src={starIcon} alt="" /> {avgRating}
-            </span>
-            <span className='text-[14px]  leading-6 lg:text-[16px]  lg:leading-7 fomt-[400] text-textColor'>
-                ({totalRating})
-            </span>
+            <div className='mt-auto flex items-center justify-between pt-5'>
+                <p className='text-sm text-muted-foreground'>
+                    {ticketPrice ? (
+                      <><span className='text-lg font-extrabold text-foreground'>{formatPrice(ticketPrice)}</span> / visit</>
+                    ) : 'Price on request'}
+                </p>
+                <span className='grid h-10 w-10 place-items-center rounded-full border border-border text-foreground transition-all duration-300 group-hover:border-primary group-hover:bg-primary group-hover:text-primary-foreground'>
+                    <ArrowUpRight className='h-5 w-5 transition-transform duration-300 group-hover:rotate-45' />
+                </span>
             </div>
         </div>
-
-        <div className='mt-[18px] lg:mt-5 flex items-center justify-between'>
-            <div>
-                {/* <h3 className='text-[16px] leading-7 lg:text-[18px] lg:leading-[30px] font-semibold
-             text-headingColor'>+{totalPatient}patients</h3> */}
-             <p className='text-[14px] leading-6 font-[400] text-textColor'> At {experiences && experiences[0]?.hospital}</p>
-          </div>
-
-          <Link
-                to= {`/doctors/${doctor._id}`}
-                className="w-[44px] h-[44px]
-              rounded-full border border-solid border-[#181A1E]  flex items-center  justify-center group hover:bg-primaryColor hover:border-none"
-              >
-                <MoveRight />
-              </Link>
-
-        </div>
-    </div>
+    </Link>
   )
 }
+
+// placeholder card shown while doctors are loading
+export const DoctorCardSkeleton = () => (
+  <div className='card-surface overflow-hidden'>
+    <div className='skeleton aspect-[4/3] rounded-none' />
+    <div className='space-y-3 p-5'>
+      <div className='skeleton h-5 w-2/3' />
+      <div className='skeleton h-4 w-1/2' />
+      <div className='skeleton h-8 w-full' />
+    </div>
+  </div>
+)
 
 export default DoctorCard

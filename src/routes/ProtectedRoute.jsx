@@ -1,13 +1,21 @@
-import { useContext } from "react"
+import { useContext, useEffect } from "react"
 import { authContext } from "../context/AuthContext.jsx"
-import { Navigate } from "react-router-dom"
+import { useLocation, useNavigate } from "react-router-dom"
 
 const ProtectedRoute = ({children , allowedRoles}) => {
     const { token ,role} = useContext(authContext)
-    const isAllowed = allowedRoles.includes(role)
-    const accessibleRoute = token && isAllowed ? children : <Navigate to="/login" replace={true} />
+    const location = useLocation()
+    const navigate = useNavigate()
+    const isAllowed = Boolean(token) && allowedRoles.includes(role)
 
-  return accessibleRoute;
+    // redirect once (a <Navigate> element would fire again on every render while the page animates out)
+    useEffect(() => {
+      // remember the page so login can send the user back to it
+      if (!isAllowed) navigate("/login", { replace: true, state: { from: location } })
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isAllowed])
+
+  return isAllowed ? children : null;
 }
 
 export default ProtectedRoute

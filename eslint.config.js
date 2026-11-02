@@ -29,10 +29,17 @@ export default [
       ...react.configs['jsx-runtime'].rules,
       ...reactHooks.configs.recommended.rules,
       'react/jsx-no-target-blank': 'off',
+      // plain JavaScript project without PropTypes
+      'react/prop-types': 'off',
       'react-refresh/only-export-components': [
         'warn',
         { allowConstantExport: true },
       ],
     },
+  },
+  // build tool config files run in Node
+  {
+    files: ['*.config.js', 'scripts/**/*.{js,mjs}'],
+    languageOptions: { globals: globals.node },
   },
 ]
