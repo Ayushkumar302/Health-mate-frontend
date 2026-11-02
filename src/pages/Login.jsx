@@ -28,7 +28,9 @@ const isDoctorPage = path => /^\/doctors\/[^/]+$/.test(path) && path !== '/docto
 // a prescription link...), otherwise straight to the dashboard of that role
 const getRedirect = (from, role) => {
   const path = from?.pathname
-  const rule = allowedOn.find(item => path?.startsWith(item.prefix))
+  // only plain paths on this site: "//other.site" or backslashes could be read as a jump to another website
+  if (!path || path.startsWith('//') || /\\/.test(path)) return dashboardPathFor(role)
+  const rule = allowedOn.find(item => path.startsWith(item.prefix))
   const usable = path && ((rule && rule.roles.includes(role)) || (role === 'patient' && isDoctorPage(path)))
   return usable ? `${path}${from.search || ''}` : dashboardPathFor(role)
 }
