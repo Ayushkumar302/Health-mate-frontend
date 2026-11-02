@@ -108,7 +108,7 @@ function Login() {
       {DEMO_MODE && (
         <div className="mb-6 rounded-2xl border border-primary/25 bg-primary/5 p-4">
           <p className="flex items-center gap-2 text-sm font-semibold">
-            <Sparkles className="h-4 w-4 text-primary" /> Portfolio demo: log in with one click
+            <Sparkles className="h-4 w-4 text-primary" /> demo: log in with one click
           </p>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             {DEMO_ACCOUNTS.map(account => {

@@ -120,7 +120,7 @@ const PrescriptionDocument = ({ prescription }) => {
 
       <footer className="flex items-end justify-between gap-6 border-t border-slate-200 pt-5 text-xs text-slate-500">
         <p className="max-w-sm">
-          Issued after an online consultation on {BRAND.name}. Portfolio demo: not a valid medical prescription.
+          Issued after an online consultation on {BRAND.name}. demo: not a valid medical prescription.
         </p>
         <div className="text-right">
           <p className="font-serif text-lg italic text-slate-700">{doctor.name}</p>

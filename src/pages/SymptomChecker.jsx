@@ -62,7 +62,7 @@ const LoginGate = () => {
       <h2 className="mt-4 text-xl font-bold">Log in to check your symptoms</h2>
       <p className="mt-2 text-sm text-muted-foreground">
         {DEMO_MODE
-          ? "This is a portfolio demo: try it instantly as the demo patient, no sign-up needed."
+          ? "This is a demo: try it instantly as the demo patient, no sign-up needed."
           : "The symptom checker is free for Medora patients. Log in or create an account to use it."}
       </p>
       <div className="mt-6 flex flex-wrap justify-center gap-3">

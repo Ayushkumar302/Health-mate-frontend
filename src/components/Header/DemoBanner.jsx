@@ -28,7 +28,7 @@ function DemoBanner() {
     <div className="bg-[hsl(var(--primary-deep))] px-4 py-2 text-center text-xs font-medium text-white sm:text-sm">
       <Sparkles className="mr-1.5 inline h-3.5 w-3.5 -translate-y-px" />
       {token ? (
-        <>Portfolio demo.{resetText}</>
+        <>{resetText}</>
       ) : (
         <>
           demo: sign-ups are closed.{resetText}{" "}
