@@ -253,7 +253,7 @@ function SignupClosed() {
         </div>
         <ul className="divide-y divide-border rounded-2xl border border-border">
           {DEMO_ACCOUNTS.map(account => (
-            <li key={account.role} className="flex items-center justify-between gap-3 p-4 text-sm">
+            <li key={account.email} className="flex items-center justify-between gap-3 p-4 text-sm">
               <div>
                 <p className="font-semibold">{account.label}</p>
                 <p className="text-xs text-muted-foreground">{account.email} · {account.password}</p>

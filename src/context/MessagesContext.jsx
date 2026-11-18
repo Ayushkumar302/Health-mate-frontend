@@ -23,12 +23,17 @@ export const useBookingsChanged = callback => {
 };
 
 // Keeps one live connection while someone is logged in: the unread badge in the header, new messages /
-// read receipts / typing for the Messages page, and booking updates (request accepted, declined...).
-const MessagesContext = createContext({ unread: 0, subscribe: () => () => {}, sendTyping: () => {}, refreshUnread: () => {} });
+// read receipts / typing for the Messages page, booking updates (request accepted, declined...) and
+// new entries for the notification centre (the bell).
+const MessagesContext = createContext({
+  unread: 0, subscribe: () => () => {}, sendTyping: () => {}, refreshUnread: () => {},
+  notificationsUnread: 0, refreshNotifications: () => {},
+});
 
 export const MessagesProvider = ({ children }) => {
   const { token, role } = useContext(authContext);
   const [unread, setUnread] = useState(0);
+  const [notificationsUnread, setNotificationsUnread] = useState(0);
   const socketRef = useRef(null);
   const listenersRef = useRef(new Set());
   const { pathname } = useLocation();
@@ -47,16 +52,32 @@ export const MessagesProvider = ({ children }) => {
       .catch(() => {});
   }, [canMessage, token]);
 
+  // unread count for the bell (the list itself is loaded when the bell is opened)
+  const refreshNotifications = useCallback(() => {
+    if (!canMessage) return;
+    apiRequest("/notifications", { token })
+      .then(result => setNotificationsUnread(result.data.unread))
+      .catch(() => {});
+  }, [canMessage, token]);
+
   useEffect(() => {
     if (!canMessage) {
       setUnread(0);
+      setNotificationsUnread(0);
       return;
     }
     const socket = io(SERVER_URL, { auth: { token } });
     socketRef.current = socket;
     const emit = (event, payload) => listenersRef.current.forEach(listener => listener(event, payload));
 
-    socket.on("connect", refreshUnread);
+    socket.on("connect", () => {
+      refreshUnread();
+      refreshNotifications();
+    });
+    socket.on("notification:new", payload => {
+      setNotificationsUnread(count => count + 1);
+      emit("notification:new", payload);
+    });
     // the server refuses sockets with an expired login
     socket.on("connect_error", error => {
       if (error?.message === "unauthorized") reportSessionExpired();
@@ -88,7 +109,7 @@ export const MessagesProvider = ({ children }) => {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [canMessage, token, role, refreshUnread, navigate]);
+  }, [canMessage, token, role, refreshUnread, refreshNotifications, navigate]);
 
   // the Messages page listens to live events through this
   const subscribe = useCallback(listener => {
@@ -99,7 +120,7 @@ export const MessagesProvider = ({ children }) => {
   const sendTyping = useCallback(conversationId => socketRef.current?.emit("dm:typing", { conversationId }), []);
 
   return (
-    <MessagesContext.Provider value={{ unread, subscribe, sendTyping, refreshUnread }}>
+    <MessagesContext.Provider value={{ unread, subscribe, sendTyping, refreshUnread, notificationsUnread, setNotificationsUnread, refreshNotifications }}>
       {children}
     </MessagesContext.Provider>
   );

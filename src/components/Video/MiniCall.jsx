@@ -23,7 +23,7 @@ function MiniCall() {
 
   return (
     // full-screen layer that only defines where the window may be dragged
-    <div ref={constraintsRef} className="pointer-events-none fixed inset-4 z-[60]">
+    <div ref={constraintsRef} className="pointer-events-none fixed inset-x-4 bottom-[92px] top-4 z-[60] md:bottom-4">
       <AnimatePresence>
         {visible && (
           <motion.div

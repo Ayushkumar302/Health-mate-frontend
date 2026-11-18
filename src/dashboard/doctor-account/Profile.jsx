@@ -3,7 +3,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import  { useState ,useEffect, useContext } from 'react'
 import { Button } from '@/components/ui/button'
-import { Camera, Lock, Trash2 } from 'lucide-react'
+import { CalendarClock, Camera, Lock, Trash2 } from 'lucide-react'
 import { DEMO_MODE } from '@/brand'
 import Avatar from '@/components/ui/avatar'
 import Spinner from '@/components/ui/spinner'
@@ -12,7 +12,7 @@ import { BASE_URL } from '@/config'
 import { authContext } from '@/context/AuthContext'
 import {toast} from 'react-toastify'
 
-const Profile = ({doctorData}) => {
+const Profile = ({doctorData, onOpenSchedule}) => {
     const { token } = useContext(authContext)
     const [uploading, setUploading] = useState(false)
     const [formData , setFormData] = useState({
@@ -28,8 +28,6 @@ const Profile = ({doctorData}) => {
         clinicAddress:'',
         qualifications:[],
         experiences:[],
-        timeSlots:[],
-        slotDuration:30,
         about:'',
         photo:null,
     })
@@ -48,8 +46,6 @@ const Profile = ({doctorData}) => {
         clinicAddress:doctorData?.clinicAddress || '',
         qualifications:doctorData?.qualifications || [],
         experiences:doctorData?.experiences || [],
-        timeSlots:doctorData?.timeSlots || [],
-        slotDuration:doctorData?.slotDuration || 30,
         about:doctorData?.about || '',
         photo:doctorData?.photo || null
 
@@ -130,28 +126,6 @@ const Profile = ({doctorData}) => {
       deleteItem('experiences', index)
     }
 
-    //timeslots funct
-    const addTimeSlot = e=>{
-      e.preventDefault()
-      addItem('timeSlots',
-        {
-          day:'monday',
-          startingTime:'11:00',
-          EndingTime:'17:00',
-        }
-      )
-    }
-
-
-    const handleTimeSlotChange = (event , index)=>{
-      handleResuableInputChangeFunc('timeSlots' , index , event)
-    }
-
-    const deleteTimeSlot = (e,index)=>{
-      e.preventDefault()
-      deleteItem('timeSlots', index)
-    }
-
 //image profile picture
     const handleFileInputChange = async (event) => {
       const file = event.target.files[0];
@@ -204,7 +178,7 @@ const Profile = ({doctorData}) => {
       {locked && (
         <p className="mt-4 flex items-start gap-2 rounded-xl bg-muted/70 px-4 py-3 text-sm text-muted-foreground">
           <Lock className="mt-0.5 h-4 w-4 shrink-0" />
-          Demo account: name, photo, specialty, bio, about, education, experience and clinic address are locked so every visitor sees the same profile. Phone, fees, appointment length and time slots can be changed.
+          Demo account: name, photo, specialty, bio, about, education, experience and clinic address are locked so every visitor sees the same profile. Phone, fees and the weekly routine (Schedule tab) can be changed.
         </p>
       )}
       <form className="mt-8">
@@ -501,82 +475,16 @@ const Profile = ({doctorData}) => {
           </Button>
         </fieldset>
 
-        <div className="mb-5">
-          <p className="form_label mt-2">Time slots</p>
-          <div className="mb-5">
-            <p className="form_label text-[13px]">Appointment length</p>
-            <select
-              name="slotDuration"
-              value={formData.slotDuration}
-              onChange={handleInputChange}
-              className="select-field"
-            >
-              <option value={15}>15 minutes</option>
-              <option value={20}>20 minutes</option>
-              <option value={30}>30 minutes</option>
-              <option value={45}>45 minutes</option>
-              <option value={60}>60 minutes</option>
-            </select>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Your weekly hours are split into appointments of this length.
-            </p>
-          </div>
-          {formData.timeSlots?.map((item, index) => (
-            <div key={index} className="mb-4 rounded-2xl border border-border bg-background/50 p-4">
-              <div>
-                <div className="grid grid-cols-2 md:grid-cols-4 mb-[30px] gap-5 items-center">
-                  <div>
-                    <p className="form_label text-[13px]">Day</p>
-                    <select
-                      name="day"
-                      value={item.day}
-                      onChange={(e) => handleTimeSlotChange(e, index)}
-                      className="select-field"
-                    >
-                      <option value="">Select</option>
-                      <option value="monday">Monday</option>
-                      <option value="tuesday">Tuesday</option>
-                      <option value="wednesday">Wednesday</option>
-                      <option value="thursday">Thursday</option>
-                      <option value="friday">Friday</option>
-                      <option value="saturday">Saturday</option>
-                      <option value="sunday">Sunday</option>
-                    </select>
-                  </div>
-                  <div>
-                    <p className="form_label text-[13px]">Starting Time</p>
-                    <Input
-                      type="time"
-                      name="startingTime"
-                      value={item.startingTime}
-                      onChange={(e) => handleTimeSlotChange(e, index)}
-                    />
-                  </div>
-                  <div>
-                    <p className="form_label text-[13px]">Ending Time</p>
-                    <Input
-                      type="time"
-                      name="EndingTime"
-                      value={item.EndingTime}
-                      onChange={(e) => handleTimeSlotChange(e, index)}
-                    />
-                  </div>
-                  {/* Button placed close to other fields */}
-                  <div className="flex items-center justify-center">
-                    <button
-                      onClick={(e) => deleteTimeSlot(e, index)}
-                      className="mt-7 grid h-10 w-10 place-items-center rounded-full bg-destructive/10 text-destructive transition-colors hover:bg-destructive hover:text-destructive-foreground"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-          <Button onClick={addTimeSlot} variant="soft" size="sm" className="mt-2">
-            Add Slot
-          </Button>
+        {/* days, hours and appointment length live in the Schedule tab (its own form, saved separately) */}
+        <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-border bg-background/50 p-4 sm:flex-row sm:items-center">
+          <CalendarClock className="h-5 w-5 shrink-0 text-primary" />
+          <p className="flex-1 text-sm">
+            <span className="font-semibold">Weekly routine: </span>
+            {doctorData?.timeSlots?.length
+              ? `${new Set(doctorData.timeSlots.map(slot => slot.day)).size} days a week, ${doctorData.slotDuration || 30} min appointments.`
+              : "not set yet. Patients can book you once you open at least one day."}
+          </p>
+          <Button type="button" variant="soft" size="sm" onClick={onOpenSchedule}>Open schedule</Button>
         </div>
 
         <fieldset disabled={locked} className="mb-5 min-w-0">

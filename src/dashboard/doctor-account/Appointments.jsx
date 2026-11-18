@@ -2,8 +2,10 @@ import { useContext, useState } from 'react'
 import { toast } from 'react-toastify'
 import { formatDate } from '@/utils/formatDate'
 import { Link } from 'react-router-dom'
-import { ClipboardList, FilePenLine, FileText, MessageSquare, Video } from 'lucide-react'
-import { canJoinVideo, formatAppointment, getAppointmentStatus, statusLabels, statusStyles, useNow } from '@/utils/appointment'
+import { AlertTriangle, ClipboardList, ClipboardPen, FilePenLine, FileText, MessageSquare, UserX, Video } from 'lucide-react'
+import { IntakeView } from '@/components/AI/Intake'
+import { appointmentStart, canJoinVideo, formatAppointment, getAppointmentStatus, statusLabels, statusStyles, useNow } from '@/utils/appointment'
+import { apiRequest } from '@/utils/api'
 import { authContext } from '@/context/AuthContext'
 import { useConfirm } from '@/context/ConfirmContext'
 import { BASE_URL } from '@/config'
@@ -13,6 +15,7 @@ import CallDetails from '@/components/Video/CallDetails'
 import ConsultationBadge from '@/components/Booking/ConsultationBadge'
 import RespondButtons from '@/components/Booking/RespondButtons'
 import { formatPrice } from '@/utils/formatPrice'
+import { bookedByNote, patientOf } from '@/utils/family'
 
 // small labelled button for the secondary row actions (Record, Message)
 export const IconAction = ({ icon: Icon, label, text, onClick, to }) => {
@@ -42,6 +45,8 @@ export const PrescriptionButton = ({ booking, status, hasPrescription, onPrescri
 const Appointments = ({ appointments, onChanged, prescribed, onPrescribe, onRecord }) => {
     const { token } = useContext(authContext)
     const [cancellingId, setCancellingId] = useState(null)
+    // the booking whose pre-visit notes are open
+    const [notesFor, setNotesFor] = useState(null)
     const confirm = useConfirm()
     const now = useNow()
 
@@ -67,6 +72,26 @@ const Appointments = ({ appointments, onChanged, prescribed, onPrescribe, onReco
         }
     }
 
+    // a clinic patient who never came: the fee is kept (video calls are checked automatically)
+    const handleMissed = async (booking) => {
+        if (!(await confirm({ title: 'Patient didn\'t come?', message: `${booking.user?.name || 'The patient'} is told the visit was missed. The fee is not refunded.`, confirmText: 'Mark as missed', cancelText: 'Back', tone: 'danger' }))) return
+        setCancellingId(booking._id)
+        try {
+            const result = await apiRequest(`/bookings/${booking._id}/no-show`, { token, method: 'PUT' })
+            toast.success(result.message)
+            onChanged?.()
+        } catch (error) {
+            toast.error(error.message)
+        } finally {
+            setCancellingId(null)
+        }
+    }
+
+    // the server accepts it from the start of the visit until 3 days later
+    const canMarkMissed = (item, status) =>
+        item.consultationType === 'clinic' && item.status === 'approved' && !item.noShow &&
+        (status === 'ongoing' || status === 'completed') && now - appointmentStart(item) < 3 * 24 * 3600000
+
     if (!appointments?.length) {
         return <p className='p-6 text-sm text-muted-foreground'>No appointments here.</p>
     }
@@ -89,14 +114,15 @@ const Appointments = ({ appointments, onChanged, prescribed, onPrescribe, onReco
             {appointments.map(item=> {
                 const status = getAppointmentStatus(item, now)
                 const patientId = item.user?._id
+                const person = patientOf(item)
                 return (
                 <tr key={item._id} className='border-b border-border align-top transition-colors hover:bg-muted/40'>
                     <th scope='row' className='flex items-center px-6 py-4 text-foreground whitespace-nowrap'>
-                        <Avatar src={item.user?.photo} name={item.user?.name || 'Patient'} className="h-10 w-10" textClassName="text-xs"/>
+                        <Avatar src={person?.memberId ? undefined : item.user?.photo} name={person?.name || 'Patient'} className="h-10 w-10" textClassName="text-xs"/>
                         <div className='pl-3'>
-                            <div className='text-base font-semibold'>{item.user?.name || 'Deleted user'}</div>
+                            <div className='text-base font-semibold'>{person?.name || 'Deleted user'}</div>
                             <div className='text-xs font-normal capitalize text-muted-foreground'>
-                                {[item.user?.gender, item.user?.bloodType].filter(Boolean).join(' · ') || item.user?.email}
+                                {bookedByNote(person) || [item.user?.gender, item.user?.bloodType].filter(Boolean).join(' · ') || item.user?.email}
                             </div>
                         </div>
                     </th>
@@ -106,14 +132,18 @@ const Appointments = ({ appointments, onChanged, prescribed, onPrescribe, onReco
                             <ConsultationBadge booking={item} />
                         </div>
                         {status !== 'cancelled' && status !== 'completed' && <CallDetails booking={item} now={now} compact />}
-                        {item.declineReason && <p className='mt-1 text-xs text-muted-foreground'>{item.cancelledBy === 'system' ? item.declineReason : `Declined: ${item.declineReason}`}</p>}
+                        {item.declineReason && <p className='mt-1 text-xs text-muted-foreground'>{item.cancelledBy === 'system' || item.noShow === 'doctor' ? item.declineReason : `Declined: ${item.declineReason}`}</p>}
+                        {item.noShow === 'patient' && <p className='mt-1 text-xs text-muted-foreground'>The patient missed this visit, the fee is kept</p>}
                     </td>
                     <td className='px-6 py-4'>
                         <span className={`whitespace-nowrap px-3 py-1 rounded-full text-xs font-semibold ${statusStyles[status]}`}>
                             {statusLabels[status]}
                         </span>
                     </td>
-                    <td className='px-6 py-4 whitespace-nowrap'>{formatPrice(item.ticketPrice)}</td>
+                    <td className='px-6 py-4 whitespace-nowrap'>
+                        {formatPrice(item.listPrice || item.ticketPrice)}
+                        {item.familyDiscount > 0 && <div className='text-xs'>Family discount paid by Medora</div>}
+                    </td>
                     <td className='px-6 py-4 whitespace-nowrap'>{formatDate(item.createdAt)}</td>
                     <td className='px-6 py-4'>
                         <div className='flex flex-wrap items-center gap-2'>
@@ -128,7 +158,10 @@ const Appointments = ({ appointments, onChanged, prescribed, onPrescribe, onReco
                         <PrescriptionButton booking={item} status={status} hasPrescription={prescribed?.has(item._id)} onPrescribe={onPrescribe} />
                         {patientId && status !== 'cancelled' && (
                             <>
-                                <IconAction icon={ClipboardList} label='Health record' text='Record' onClick={() => onRecord(item.user)} />
+                                {item.intake?.summary?.complaint && (
+                                    <IconAction icon={item.intake.summary.redFlags?.length ? AlertTriangle : ClipboardPen} label='Pre-visit notes' text='Notes' onClick={() => setNotesFor(item)} />
+                                )}
+                                <IconAction icon={ClipboardList} label='Health record' text='Record' onClick={() => onRecord(person)} />
                                 <IconAction icon={MessageSquare} label='Message' to={`/messages?with=${patientId}`} />
                             </>
                         )}
@@ -143,12 +176,18 @@ const Appointments = ({ appointments, onChanged, prescribed, onPrescribe, onReco
                                 Cancel
                             </Button>
                         )}
+                        {canMarkMissed(item, status) && (
+                            <Button size='sm' variant='ghost' disabled={cancellingId === item._id} onClick={() => handleMissed(item)}>
+                                <UserX className='h-4 w-4' /> Didn&apos;t come
+                            </Button>
+                        )}
                         </div>
                     </td>
                 </tr>
             )})}
         </tbody>
     </table>
+    <IntakeView intake={notesFor?.intake} patientName={patientOf(notesFor)?.name} open={Boolean(notesFor)} onClose={() => setNotesFor(null)} />
     </div>
   )
 }

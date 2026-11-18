@@ -1,9 +1,9 @@
-import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  AlertCircle, AlertTriangle, CalendarClock, CalendarDays, CalendarRange, CheckCircle2, Circle, ClipboardList, Clock3, ExternalLink,
-  FileCheck2, FileText, Inbox, IndianRupee, ListChecks, MessageSquare, MessageSquareQuote, Search, Star, Users, Video,
+  AlertCircle, AlertTriangle, CalendarClock, CalendarDays, CalendarRange, CheckCircle2, Circle, ClipboardList, ClipboardPen, Clock3, ExternalLink,
+  FileCheck2, FileText, Inbox, IndianRupee, ListChecks, MessageSquare, MessageSquareQuote, Search, Sparkles, Star, Users, Video,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Error from "@/components/Error/Error";
@@ -12,6 +12,8 @@ import { BASE_URL } from "@/config";
 import Tabs from "./Tabs";
 import Profile from "./Profile";
 import TimeOff from "./TimeOff";
+import Schedule from "./Schedule";
+import Earnings from "./Earnings";
 import Appointments, { IconAction, PrescriptionButton } from "./Appointments";
 import PrescriptionEditor from "@/components/Prescription/PrescriptionEditor";
 import PatientRecordModal from "@/components/Records/PatientRecordModal";
@@ -22,18 +24,29 @@ import { useBookingsChanged, useMessages } from "@/context/MessagesContext";
 import { ageFrom, formatDay } from "@/utils/health";
 import Avatar from "@/components/ui/avatar";
 import CallDetails from "@/components/Video/CallDetails";
-import { EmptyState, FilterChips, SectionCard, StatCard, greeting, todayLabel } from "@/components/Dashboard/DashboardUI";
+import { EmptyState, FilterChips, SectionCard, StatGroup, greeting, todayLabel } from "@/components/Dashboard/DashboardUI";
 import { appointmentStart, canJoinVideo, formatClock, getAppointmentStatus, statusLabels, statusStyles, useNow } from "@/utils/appointment";
 import { formatPrice } from "@/utils/formatPrice";
 import { formatDate } from "@/utils/formatDate";
+import SetupChecklist from "./SetupChecklist";
 import ConvertTime from "@/utils/convertTime";
+import { bookedByNote, patientOf } from "@/utils/family";
+import { modeLabel } from "@/utils/schedule";
+import { IntakeView } from "@/components/AI/Intake";
+import ReviewReply from "./ReviewReply";
 
 const DAY = 24 * 60 * 60 * 1000;
 const WEEK_DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
 const dateKey = date => date.toLocaleDateString("en-CA");
+const SECTIONS = ["overview", "appointments", "schedule", "patients", "earnings", "reviews", "profile"];
+// back from Stripe's payout setup (?payouts=done) the earnings section opens
+const sectionFromUrl = search => {
+  const params = new URLSearchParams(search);
+  return params.has("payouts") ? "earnings" : SECTIONS.find(id => params.has(id)) || "overview";
+};
 
 const DashboardSkeleton = () => (
-  <div className="grid gap-8 lg:grid-cols-[260px_1fr]">
+  <div className="grid grid-cols-1 gap-8 lg:grid-cols-[260px_minmax(0,1fr)]">
     <div className="skeleton h-80 rounded-2xl" />
     <div className="space-y-4">
       <div className="skeleton h-16 w-80 rounded-2xl" />
@@ -57,6 +70,8 @@ const Stars = ({ rating, className = "h-4 w-4" }) => (
 const ScheduleRow = ({ booking, now, actions, showDate = false }) => {
   const status = getAppointmentStatus(booking, now);
   const start = appointmentStart(booking);
+  const person = patientOf(booking);
+  const [notesOpen, setNotesOpen] = useState(false);
   return (
     <li className="py-4">
       <div className="flex items-start gap-3 sm:gap-4">
@@ -65,13 +80,14 @@ const ScheduleRow = ({ booking, now, actions, showDate = false }) => {
           <p className="font-bold">{start ? formatClock(start) : "—"}</p>
           <p className="text-xs text-muted-foreground">{(booking.slotDuration || 30) + (booking.extendedMinutes || 0)} min</p>
         </div>
-        <Avatar src={booking.user?.photo} name={booking.user?.name || "Patient"} className="h-10 w-10" textClassName="text-xs" />
+        <Avatar src={person?.memberId ? undefined : booking.user?.photo} name={person?.name || "Patient"} className="h-10 w-10" textClassName="text-xs" />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="truncate font-semibold">{booking.user?.name || "Deleted user"}</p>
+            <p className="truncate font-semibold">{person?.name || "Deleted user"}</p>
             <ConsultationBadge booking={booking} />
             <span className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusStyles[status]}`}>{statusLabels[status]}</span>
           </div>
+          {bookedByNote(person) && <p className="text-xs text-muted-foreground">{bookedByNote(person)}</p>}
           <CallDetails booking={booking} now={now} compact />
         </div>
       </div>
@@ -86,11 +102,16 @@ const ScheduleRow = ({ booking, now, actions, showDate = false }) => {
         <PrescriptionButton booking={booking} status={status} hasPrescription={actions.prescribed.has(booking._id)} onPrescribe={actions.onPrescribe} />
         {booking.user && (
           <div className="ml-auto flex gap-2">
-            <IconAction icon={ClipboardList} label="Health record" text="Record" onClick={() => actions.onRecord(booking.user)} />
+            {booking.intake?.summary?.complaint && (
+              <IconAction icon={booking.intake.summary.redFlags?.length ? AlertTriangle : ClipboardPen} label="Pre-visit notes" text="Notes" onClick={() => setNotesOpen(true)} />
+            )}
+            <IconAction icon={ClipboardList} label="Health record" text="Record" onClick={() => actions.onRecord(person)} />
             <IconAction icon={MessageSquare} label="Message" to={`/messages?with=${booking.user._id}`} />
           </div>
         )}
       </div>
+      {booking.intake?.summary?.complaint && <p className="mt-2 truncate text-xs text-muted-foreground">Coming for: <span className="font-semibold text-foreground">{booking.intake.summary.complaint}</span></p>}
+      <IntakeView intake={booking.intake} patientName={person?.name} open={notesOpen} onClose={() => setNotesOpen(false)} />
     </li>
   );
 };
@@ -101,8 +122,10 @@ const PatientsTable = ({ appointments, now, onRecord }) => {
     const byPatient = new Map();
     appointments.forEach(booking => {
       if (!booking.user) return;
-      const id = booking.user._id;
-      const entry = byPatient.get(id) || { user: booking.user, visits: 0, last: null, next: null, spent: 0 };
+      // each family member is their own patient
+      const person = patientOf(booking);
+      const id = `${booking.user._id}:${person.memberId || ""}`;
+      const entry = byPatient.get(id) || { key: id, user: person, visits: 0, last: null, next: null, spent: 0 };
       const status = getAppointmentStatus(booking, now);
       const start = appointmentStart(booking);
       if (status === "completed") {
@@ -135,15 +158,15 @@ const PatientsTable = ({ appointments, now, onRecord }) => {
           </tr>
         </thead>
         <tbody>
-          {patients.map(({ user, visits, last, next, spent }) => (
-            <tr key={user._id} className="border-t border-border transition-colors hover:bg-muted/40">
+          {patients.map(({ key, user, visits, last, next, spent }) => (
+            <tr key={key} className="border-t border-border transition-colors hover:bg-muted/40">
               <td className="px-5 py-3">
                 <div className="flex items-center gap-3">
                   <Avatar src={user.photo} name={user.name} className="h-10 w-10" textClassName="text-xs" />
                   <div className="min-w-0">
                     <p className="font-semibold">{user.name}</p>
                     <p className="text-xs capitalize text-muted-foreground">
-                      {[ageFrom(user.dateOfBirth) !== null && `${ageFrom(user.dateOfBirth)} y`, user.gender, user.bloodType].filter(Boolean).join(" · ") || user.email}
+                      {bookedByNote(user) || [ageFrom(user.dateOfBirth) !== null && `${ageFrom(user.dateOfBirth)} y`, user.gender, user.bloodType].filter(Boolean).join(" · ") || user.email}
                     </p>
                     {user.allergies?.length > 0 && (
                       <p className="mt-0.5 flex items-center gap-1 text-xs font-semibold text-destructive">
@@ -176,7 +199,16 @@ const Dashboard = () => {
   const { data: prescriptions, refetch: refetchPrescriptions } = useFetchData(`${BASE_URL}/prescriptions/mine`);
   const { unread } = useMessages();
   useBookingsChanged(refetch);
-  const [tab, setTab] = useState("overview");
+  // back from one of Stripe's pages (payout setup, Pro payment) or a notification: open the tab it belongs to
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [tab, setTabState] = useState(() => sectionFromUrl(window.location.search));
+  // the section is kept in the address, so links (bottom bar, notifications, Stripe) open the right one
+  useEffect(() => setTabState(sectionFromUrl(location.search)), [location.search]);
+  const setTab = id => {
+    setTabState(id);
+    navigate({ search: id === "overview" ? "" : `?${id}` }, { replace: true });
+  };
   const [rxBooking, setRxBooking] = useState(null);
   const [recordPatient, setRecordPatient] = useState(null);
   const [filter, setFilter] = useState("upcoming");
@@ -211,7 +243,7 @@ const Dashboard = () => {
     const monthKey = now.toLocaleDateString("en-CA").slice(0, 7);
     const monthEarnings = withStatus
       .filter(item => item.booking.status === "approved" && item.booking.appointmentDate?.startsWith(monthKey))
-      .reduce((sum, item) => sum + (item.booking.ticketPrice || 0), 0);
+      .reduce((sum, item) => sum + (item.booking.listPrice || item.booking.ticketPrice || 0), 0);
 
     return {
       todays: todays.map(item => item.booking),
@@ -238,7 +270,7 @@ const Dashboard = () => {
         { label: "Consultation fee", done: Boolean(data.ticketPrice) },
         { label: "Short bio", done: Boolean(data.bio) },
         { label: "About you", done: Boolean(data.about) },
-        { label: "Weekly time slots", done: data.timeSlots?.length > 0 },
+        { label: "Weekly routine", done: data.timeSlots?.length > 0 },
         { label: "Qualifications", done: data.qualifications?.length > 0 },
         { label: "Experience", done: data.experiences?.length > 0 },
       ]
@@ -247,13 +279,18 @@ const Dashboard = () => {
 
   const reviews = [...(data?.reviews || [])].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   const weeklyHours = [...(data?.timeSlots || [])].sort(
-    (a, b) => WEEK_DAYS.indexOf(a.day?.toLowerCase()) - WEEK_DAYS.indexOf(b.day?.toLowerCase())
+    (a, b) => WEEK_DAYS.indexOf(a.day?.toLowerCase()) - WEEK_DAYS.indexOf(b.day?.toLowerCase()) || String(a.startingTime).localeCompare(String(b.startingTime))
   );
 
-  const tableRows = (summary.lists[filter] || []).filter(booking =>
-    !search.trim() || booking.user?.name?.toLowerCase().includes(search.trim().toLowerCase())
-  );
+  const tableRows = (summary.lists[filter] || []).filter(booking => {
+    const term = search.trim().toLowerCase();
+    return !term || [booking.user?.name, booking.familyMember?.name].some(name => name?.toLowerCase().includes(term));
+  });
   const firstName = data?.name?.replace(/^dr\.?\s*/i, "").split(" ")[0];
+
+  // plans moved to their own page: send old links (?plan) and Stripe returns (?pro=done) there
+  const query = new URLSearchParams(location.search);
+  if (query.has("plan") || query.has("pro")) return <Navigate to={`/plans${location.search}`} replace />;
 
   return (
     <section className="pt-8">
@@ -262,7 +299,7 @@ const Dashboard = () => {
         {error && !loading && <Error />}
 
         {!error && data && (
-          <div className="grid gap-8 lg:grid-cols-[260px_1fr]">
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-[260px_minmax(0,1fr)]">
             <Tabs tab={tab} setTab={setTab} doctor={data} unread={unread} />
 
             <div className="min-w-0 space-y-6">
@@ -277,22 +314,16 @@ const Dashboard = () => {
                       : "No appointments today."}
                   </p>
                 </div>
-                {isApproved === "approved" && (
+                {data.onboarding?.listed && (
                   <Link to={`/doctors/${data._id}`}>
                     <Button variant="outline"><ExternalLink className="h-4 w-4" /> View public profile</Button>
                   </Link>
                 )}
               </div>
 
-              {isApproved === "pending" && (
-                <div className="flex gap-3 rounded-2xl border border-brand-amber/30 bg-brand-amber/10 p-4 text-sm">
-                  <AlertCircle className="h-5 w-5 shrink-0 text-brand-amber" />
-                  <p>
-                    <span className="font-semibold">Your account is waiting for verification.</span> We&apos;ll check your medical
-                    registration number within 2 days. Meanwhile, complete your profile ({completeness}% done) so patients can book
-                    you as soon as you are listed.
-                  </p>
-                </div>
+              {/* new doctors: what's left before patients can find them */}
+              {data.onboarding && !data.onboarding.listed && ["pending", "approved"].includes(isApproved) && (
+                <SetupChecklist onboarding={data.onboarding} setTab={setTab} />
               )}
               {["rejected", "suspended", "cancelled"].includes(isApproved) && (
                 <div className="flex gap-3 rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm">
@@ -317,18 +348,14 @@ const Dashboard = () => {
                 >
                   {tab === "overview" && (
                     <>
-                      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-                        <StatCard icon={Inbox} tone="amber" label="Requests" value={summary.requests.length} hint="waiting for you" />
-                        <StatCard icon={CalendarDays} label="Today" value={summary.todays.length} hint="appointments" />
-                        <StatCard icon={CalendarRange} tone="highlight" label="Next 7 days" value={summary.weekCount} hint="upcoming visits" />
-                        <StatCard
-                          icon={IndianRupee}
-                          tone="violet"
-                          label="This month"
-                          value={formatPrice(summary.monthEarnings)}
-                          hint={now.toLocaleDateString("en-IN", { month: "long" }) + " earnings"}
-                        />
-                      </div>
+                      <StatGroup
+                        items={[
+                          { icon: Inbox, tone: "amber", label: "Requests", value: summary.requests.length, hint: "waiting for you" },
+                          { icon: CalendarDays, label: "Today", value: summary.todays.length, hint: "appointments" },
+                          { icon: CalendarRange, tone: "highlight", label: "Next 7 days", value: summary.weekCount, hint: "upcoming visits" },
+                          { icon: IndianRupee, tone: "violet", label: "This month", value: formatPrice(summary.monthEarnings), hint: now.toLocaleDateString("en-IN", { month: "long" }) + " earnings" },
+                        ]}
+                      />
 
                       <div className="grid gap-6 xl:grid-cols-[1fr_320px]">
                         <div className="min-w-0 space-y-6">
@@ -350,7 +377,7 @@ const Dashboard = () => {
                               <FileText className="h-5 w-5 shrink-0 text-brand-amber" />
                               <p className="flex-1 text-sm">
                                 <span className="font-semibold">{missingRx(summary).length} past consultation{missingRx(summary).length > 1 ? "s" : ""} without a prescription.</span>{" "}
-                                Latest: {missingRx(summary)[0].user?.name || "patient"}, {formatDay(missingRx(summary)[0].appointmentDate)}.
+                                Latest: {patientOf(missingRx(summary)[0])?.name || "patient"}, {formatDay(missingRx(summary)[0].appointmentDate)}.
                               </p>
                               <Button size="sm" variant="outline" onClick={() => setRxBooking(missingRx(summary)[0])}>Write it now</Button>
                             </div>
@@ -415,15 +442,23 @@ const Dashboard = () => {
                             )}
                           </SectionCard>
 
-                          <SectionCard icon={CalendarClock} title="Weekly hours" subtitle={`${data.slotDuration || 30} min appointments · ${data.ticketPrice ? formatPrice(data.ticketPrice) : "no fee set"}`}>
+                          <SectionCard
+                            icon={CalendarClock}
+                            title="Weekly routine"
+                            subtitle={`${data.slotDuration || 30} min appointments${data.bufferMinutes ? ` + ${data.bufferMinutes} min break` : ""} · ${data.ticketPrice ? formatPrice(data.ticketPrice) : "no fee set"}`}
+                            action={<button type="button" onClick={() => setTab("schedule")} className="text-sm font-semibold text-primary hover:underline">Edit</button>}
+                          >
                             {weeklyHours.length === 0 ? (
-                              <p className="text-sm text-muted-foreground">No time slots yet. Add them in your profile so patients can book you.</p>
+                              <p className="text-sm text-muted-foreground">No weekly routine yet. Set your days and hours so patients can book you.</p>
                             ) : (
                               <ul className="space-y-2 text-sm">
                                 {weeklyHours.map((slot, index) => (
                                   <li key={index} className="flex justify-between gap-3">
                                     <span className="font-medium capitalize">{slot.day}</span>
-                                    <span className="text-muted-foreground">{ConvertTime(slot.startingTime)} – {ConvertTime(slot.EndingTime)}</span>
+                                    <span className="text-right text-muted-foreground">
+                                      {ConvertTime(slot.startingTime)} – {ConvertTime(slot.EndingTime)}
+                                      {slot.mode && slot.mode !== "both" && <span className="block text-xs">{modeLabel(slot.mode)} only</span>}
+                                    </span>
                                   </li>
                                 ))}
                               </ul>
@@ -498,8 +533,28 @@ const Dashboard = () => {
                     </SectionCard>
                   )}
 
+                  {tab === "schedule" && <Schedule key={data.updatedAt} doctor={data} onSaved={refetch} />}
+
+                  {tab === "earnings" && <Earnings onPayoutsChanged={refetch} />}
+
                   {tab === "reviews" && (
                     <SectionCard icon={MessageSquareQuote} title="Patient reviews" subtitle={`${data.totalRating || 0} reviews · ${data.averageRating ? data.averageRating.toFixed(1) : "—"} average`}>
+                      {data.aiTools && data.reviewSummary?.summary && (
+                        <div className="mb-5 rounded-2xl border border-primary/25 bg-primary/5 p-4">
+                          <p className="flex items-center gap-2 text-sm font-bold"><Sparkles className="h-4 w-4 text-primary" /> What patients say (AI summary, shown on your profile)</p>
+                          <p className="mt-1 text-sm">{data.reviewSummary.summary}</p>
+                          {data.reviewSummary.improve?.length > 0 && (
+                            <p className="mt-1 text-xs text-muted-foreground">Mentioned to improve: {data.reviewSummary.improve.join(", ")}</p>
+                          )}
+                        </div>
+                      )}
+                      {!data.aiTools && reviews.length >= 3 && (
+                        <Link to="/plans" className="mb-5 flex w-full items-center gap-3 rounded-2xl border border-dashed border-primary/40 p-4 text-left text-sm hover:border-primary/70">
+                          <Sparkles className="h-4 w-4 shrink-0 text-primary" />
+                          <span className="flex-1">On Pro and Pro Clinic your profile shows an AI summary of your reviews, and you can draft prescriptions from rough notes.</span>
+                          <span className="font-semibold text-primary">See plans</span>
+                        </Link>
+                      )}
                       {reviews.length === 0 ? (
                         <EmptyState icon={MessageSquareQuote} title="No reviews yet" text="Patients can review you after their appointment." />
                       ) : (
@@ -517,6 +572,7 @@ const Dashboard = () => {
                                 <Stars rating={review.rating} />
                               </div>
                               <p className="mt-3 text-sm leading-6">{review.reviewText}</p>
+                              <ReviewReply review={review} />
                             </li>
                           ))}
                         </ul>
@@ -527,7 +583,7 @@ const Dashboard = () => {
                   {tab === "profile" && (
                     <>
                       <div className="card-surface p-6 sm:p-8">
-                        <Profile doctorData={data} />
+                        <Profile doctorData={data} onOpenSchedule={() => setTab("schedule")} />
                       </div>
                       <MyDocuments
                         icon={FileCheck2}
@@ -549,7 +605,7 @@ const Dashboard = () => {
       </div>
 
       <PrescriptionEditor open={Boolean(rxBooking)} booking={rxBooking} onClose={() => setRxBooking(null)} onSaved={refetchPrescriptions} />
-      <PatientRecordModal open={Boolean(recordPatient)} onClose={() => setRecordPatient(null)} patientId={recordPatient?._id} patientName={recordPatient?.name} />
+      <PatientRecordModal open={Boolean(recordPatient)} onClose={() => setRecordPatient(null)} patientId={recordPatient?._id} memberId={recordPatient?.memberId} patientName={recordPatient?.name} />
     </section>
   );
 };

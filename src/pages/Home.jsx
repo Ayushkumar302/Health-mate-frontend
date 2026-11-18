@@ -122,6 +122,13 @@ function Home() {
                   {term}
                 </Link>
               ))}
+              {/* the AI booking assistant (asks visitors to log in first) */}
+              <Link
+                to="/book"
+                className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 font-semibold text-primary transition-colors hover:bg-primary/15"
+              >
+                <Sparkles className="h-3.5 w-3.5" /> Or book with AI
+              </Link>
             </motion.div>
 
             {/* social proof */}

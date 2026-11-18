@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import Spinner from "@/components/ui/spinner";
 import { authContext } from "@/context/AuthContext";
 import { apiRequest } from "@/utils/api";
+import LanguagePicker, { useAiLanguage } from "@/components/AI/LanguagePicker";
 
 const GRID_COLUMNS = { 2: "sm:grid-cols-2", 3: "sm:grid-cols-3" };
 
@@ -23,11 +24,12 @@ const PrescriptionExplainer = ({ prescription }) => {
   const { token } = useContext(authContext);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [lang] = useAiLanguage();
 
   const explain = async () => {
     setLoading(true);
     try {
-      const result = await apiRequest(`/prescriptions/booking/${prescription.booking?._id || prescription.booking}/explain`, { token, method: "POST" });
+      const result = await apiRequest(`/prescriptions/booking/${prescription.booking?._id || prescription.booking}/explain`, { token, method: "POST", body: { lang } });
       setData(result.data);
     } catch (error) {
       toast.error(error.message);
@@ -43,9 +45,12 @@ const PrescriptionExplainer = ({ prescription }) => {
           <p className="font-bold">Not sure what this all means?</p>
           <p className="text-sm text-muted-foreground">Get your prescription explained in simple words: what each medicine is for and how to take it.</p>
         </div>
-        <Button onClick={explain} disabled={loading} className="w-full shrink-0 sm:w-auto">
-          {loading ? <><Spinner className="h-4 w-4 text-primary-foreground" /> Explaining…</> : <><Sparkles className="h-4 w-4" /> Explain in simple words</>}
-        </Button>
+        <div className="flex w-full shrink-0 flex-col items-stretch gap-2 sm:w-auto sm:items-end">
+          <Button onClick={explain} disabled={loading} className="w-full sm:w-auto">
+            {loading ? <><Spinner className="h-4 w-4 text-primary-foreground" /> Explaining…</> : <><Sparkles className="h-4 w-4" /> Explain in simple words</>}
+          </Button>
+          <LanguagePicker />
+        </div>
       </div>
     );
   }

@@ -38,6 +38,23 @@ export const StatCard = ({ icon: Icon, label, value, hint, tone = "primary" }) =
   );
 };
 
+// a row of numbers: cards from tablet width up, one compact strip on phones (saves a screen of scrolling)
+export const StatGroup = ({ items }) => (
+  <>
+    <div className="grid grid-cols-4 divide-x divide-border rounded-2xl border border-border bg-card py-3 sm:hidden">
+      {items.map(({ label, value }) => (
+        <div key={label} className="min-w-0 px-1.5 text-center">
+          <p className="truncate text-base font-extrabold tracking-tight">{value}</p>
+          <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground">{label}</p>
+        </div>
+      ))}
+    </div>
+    <div className="hidden grid-cols-2 gap-4 sm:grid xl:grid-cols-4">
+      {items.map(item => <StatCard key={item.label} {...item} />)}
+    </div>
+  </>
+);
+
 // card with a titled header and optional action on the right
 export const SectionCard = ({ icon: Icon, title, subtitle, action, children, className = "", bodyClassName = "p-5" }) => (
   <div className={`overflow-hidden rounded-2xl border border-border bg-card ${className}`}>
@@ -103,5 +120,27 @@ export const InfoRow = ({ icon: Icon, label, value }) => (
       {Icon && <Icon className="h-4 w-4" />} {label}
     </span>
     <span className="truncate font-semibold">{value || "—"}</span>
+  </div>
+);
+
+// an on/off setting with its explanation (plan and membership pages)
+export const SettingRow = ({ icon: Icon, title, text, checked, onChange, busy }) => (
+  <div className="flex items-start gap-3 py-4">
+    <Icon className="mt-0.5 h-[18px] w-[18px] shrink-0 text-primary" />
+    <div className="min-w-0 flex-1">
+      <p className="text-sm font-semibold">{title}</p>
+      <p className="text-sm text-muted-foreground">{text}</p>
+    </div>
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={title}
+      disabled={busy}
+      onClick={() => onChange(!checked)}
+      className={`relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-60 ${checked ? "bg-primary" : "bg-muted-foreground/30"}`}
+    >
+      <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${checked ? "left-[22px]" : "left-0.5"}`} />
+    </button>
   </div>
 );

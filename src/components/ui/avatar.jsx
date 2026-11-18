@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { sizedImage } from "@/utils/image";
 
 // calm blue / mint tones for initials avatars
 const GRADIENTS = [
@@ -33,8 +34,10 @@ function Avatar({ src, name, className, textClassName }) {
   if (src && !failed) {
     return (
       <img
-        src={src}
+        src={sizedImage(src, 200)}
         alt={name || ""}
+        loading="lazy"
+        decoding="async"
         onError={() => setFailed(true)}
         className={cn("h-12 w-12 shrink-0 rounded-full object-cover", className)}
       />

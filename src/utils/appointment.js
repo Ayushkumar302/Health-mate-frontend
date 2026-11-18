@@ -3,7 +3,8 @@ import { formatDate } from "./formatDate";
 import ConvertTime from "./convertTime";
 
 // patients can cancel (with refund) only up to this long before the appointment, same rule as the backend
-export const CANCEL_CUTOFF_HOURS = 2;
+export const CANCEL_CUTOFF_HOURS = 2; // patients cancelling before this get 90% back, after it 50% (server: utils/earnings.js)
+export const MAX_RESCHEDULES = 1;
 // video call window, same as the backend: opens 10 min early, closes 15 min after the slot ends
 export const JOIN_EARLY_MINUTES = 10;
 export const JOIN_GRACE_MINUTES = 15;

@@ -28,6 +28,12 @@ export const UrgencyBanner = ({ result }) => {
     <div className={`rounded-2xl border p-5 ${urgency.tone}`}>
       <p className="flex items-center gap-2 text-lg font-extrabold"><Icon className="h-5 w-5" /> {urgency.title}</p>
       {result.summary && <p className="mt-2 text-sm leading-6 text-foreground">{result.summary}</p>}
+      {/* a related check the patient saved in the last 30 days */}
+      {result.earlierNote && (
+        <p className="mt-3 flex items-start gap-2 rounded-xl bg-background/70 px-3 py-2 text-sm font-medium text-foreground">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" /> {result.earlierNote}
+        </p>
+      )}
       {result.emergency?.actions?.length > 0 && (
         <ul className="mt-3 space-y-1.5">
           {result.emergency.actions.map(action => (

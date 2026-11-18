@@ -9,7 +9,9 @@ const Heading = ({ children }) => (
 
 // the prescription as a printable sheet of paper (always light, also in dark mode)
 const PrescriptionDocument = ({ prescription }) => {
-  const { doctor, user: patient, booking } = prescription;
+  const { doctor, booking } = prescription;
+  // written for a family member: their name, and who booked it
+  const patient = prescription.familyMember?.name ? { name: prescription.familyMember.name } : prescription.user;
   const degrees = (doctor.qualifications || []).map(item => item.degree).filter(Boolean).join(", ");
   const hospital = doctor.experiences?.[0]?.hospital;
 
@@ -39,7 +41,9 @@ const PrescriptionDocument = ({ prescription }) => {
         <div>
           <Heading>Patient</Heading>
           <p className="mt-1 font-semibold">{patient.name}</p>
-          <p className="text-slate-600">{patientSummary(patient) || "—"}</p>
+          <p className="text-slate-600">
+            {prescription.familyMember?.name ? `Booked by ${prescription.user.name} (Plus Family)` : patientSummary(patient) || "—"}
+          </p>
         </div>
         <div>
           <Heading>Consultation</Heading>

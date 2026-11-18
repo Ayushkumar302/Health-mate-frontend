@@ -1,7 +1,7 @@
 import { useContext } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
-import { CalendarDays, LayoutDashboard, LogOut, MessageSquare, Star, Trash2, UserCog, Users } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import DashboardNav from '@/components/Dashboard/DashboardNav'
+import { CalendarClock, CalendarDays, Crown, FileText, LayoutDashboard, LogOut, MessageSquare, Star, Trash2, UserCog, Users, Wallet } from 'lucide-react'
 import { toast } from 'react-toastify'
 import { Button } from '@/components/ui/button'
 import Avatar from '@/components/ui/avatar'
@@ -13,7 +13,9 @@ import { useConfirm } from '@/context/ConfirmContext'
 const items = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
   { id: 'appointments', label: 'Appointments', icon: CalendarDays },
+  { id: 'schedule', label: 'Schedule', icon: CalendarClock },
   { id: 'patients', label: 'Patients', icon: Users },
+  { id: 'earnings', label: 'Earnings', icon: Wallet },
   { id: 'reviews', label: 'Reviews', icon: Star },
   { id: 'profile', label: 'Profile', icon: UserCog },
 ]
@@ -28,7 +30,7 @@ const statusBadge = {
 
 const statusLabel = { approved: 'Verified', pending: 'Pending review', rejected: 'Not verified', suspended: 'Suspended', cancelled: 'Suspended' }
 
-// sidebar on desktop, horizontal tab bar on mobile
+// sidebar on desktop; on phones the same menu shows as a grid so every section is visible
 const Tabs = ({ tab, setTab, doctor, unread = 0 }) => {
     const {dispatch, user, token} = useContext(authContext);
     const navigate = useNavigate();
@@ -57,7 +59,7 @@ const Tabs = ({ tab, setTab, doctor, unread = 0 }) => {
     }
 
   return (
-    <aside className="lg:sticky lg:top-24 lg:h-fit">
+    <aside className="min-w-0 lg:sticky lg:top-24 lg:h-fit">
       <div className="card-surface p-4 lg:p-5">
         {/* doctor summary */}
         <div className="flex items-center gap-3 lg:flex-col lg:text-center">
@@ -73,40 +75,22 @@ const Tabs = ({ tab, setTab, doctor, unread = 0 }) => {
           </div>
         </div>
 
-        <nav className="no-scrollbar -mx-1 mt-4 flex gap-1 overflow-x-auto px-1 lg:mt-6 lg:flex-col">
-          {items.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              onClick={() => setTab(id)}
-              className={`relative flex shrink-0 items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors ${
-                tab === id ? 'text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-              }`}
-            >
-              {tab === id && (
-                <motion.span
-                  layoutId="doctor-sidebar"
-                  className="absolute inset-0 rounded-xl bg-primary/10"
-                  transition={{ type: 'spring', stiffness: 400, damping: 32 }}
-                />
-              )}
-              <Icon className="relative h-4 w-4" />
-              <span className="relative">{label}</span>
-            </button>
-          ))}
-          <Link
-            to="/messages"
-            className="relative flex shrink-0 items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            <MessageSquare className="h-4 w-4" />
-            <span>Messages</span>
-            {unread > 0 && (
-              <span className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1.5 text-[11px] font-bold text-primary-foreground">{unread}</span>
-            )}
-          </Link>
-        </nav>
+        <div className="mt-4 hidden md:block lg:mt-6">
+          <DashboardNav
+            items={items}
+            tab={tab}
+            onChange={setTab}
+            layoutId="doctor-sidebar"
+            links={[
+              { to: '/messages', label: 'Messages', icon: MessageSquare, count: unread },
+              { to: '/reports', label: 'Reports', icon: FileText },
+              { to: '/plans', label: 'Medora Pro', icon: Crown, highlight: true },
+            ]}
+          />
+        </div>
 
-        <div className={`mt-4 grid gap-2 border-t border-border pt-4 lg:mt-6 lg:grid-cols-1 lg:pt-5 ${DEMO_MODE ? "" : "grid-cols-2"}`}>
-          <Button variant="outline" onClick={handleLogout}>
+        <div className={`mt-4 grid gap-2 border-t border-border pt-4 lg:mt-6 lg:grid-cols-1 lg:pt-5 ${DEMO_MODE ? "hidden lg:grid" : ""}`}>
+          <Button variant="outline" onClick={handleLogout} className="hidden lg:inline-flex">
             <LogOut className="h-4 w-4" /> Log out
           </Button>
           {!DEMO_MODE && (

@@ -211,9 +211,9 @@ function VideoConsultation() {
           <PrescriptionEditor
             open={rxOpen}
             onClose={() => setRxOpen(false)}
-            booking={{ _id: bookingId, appointmentDate: session.appointmentDate, user: { _id: session.patientId, name: session.patientName } }}
+            booking={{ _id: bookingId, appointmentDate: session.appointmentDate, user: { _id: session.patientId, name: session.patientName }, familyMember: session.familyMember }}
           />
-          <PatientRecordModal open={recordOpen} onClose={() => setRecordOpen(false)} patientId={session.patientId} patientName={session.patientName} />
+          <PatientRecordModal open={recordOpen} onClose={() => setRecordOpen(false)} patientId={session.patientId} memberId={session.familyMember?._id} patientName={session.familyMember?.name || session.patientName} />
         </>
       )}
     </section>

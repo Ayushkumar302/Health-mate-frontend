@@ -1,8 +1,8 @@
 import { useCallback, useContext, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  BadgeCheck, BarChart3, CalendarDays, ClipboardCheck, IndianRupee, LayoutDashboard, LogOut, Receipt, Search, ShieldCheck,
+  BadgeCheck, BarChart3, CalendarDays, ClipboardCheck, IndianRupee, Landmark, LayoutDashboard, LogOut, Receipt, Search, ShieldCheck,
   Stethoscope, UserRound, Users,
 } from "lucide-react";
 import { toast } from "react-toastify";
@@ -10,11 +10,13 @@ import { authContext } from "@/context/AuthContext";
 import { apiRequest } from "@/utils/api";
 import Avatar from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { EmptyState, FilterChips, SectionCard, StatCard, greeting, todayLabel } from "@/components/Dashboard/DashboardUI";
+import { EmptyState, FilterChips, SectionCard, StatGroup, greeting, todayLabel } from "@/components/Dashboard/DashboardUI";
+import DashboardNav from "@/components/Dashboard/DashboardNav";
 import { formatAppointment } from "@/utils/appointment";
 import { formatPrice } from "@/utils/formatPrice";
 import { RevenueChart, SpecialtyBars } from "./AdminCharts";
 import DoctorReviewCard from "./DoctorReviewCard";
+import MoneyAndPlans from "./MoneyAndPlans";
 import ConsultationBadge from "@/components/Booking/ConsultationBadge";
 
 const tabs = [
@@ -22,6 +24,7 @@ const tabs = [
   { id: "verification", label: "Verification", icon: ClipboardCheck },
   { id: "patients", label: "Patients", icon: Users },
   { id: "bookings", label: "Bookings", icon: Receipt },
+  { id: "money", label: "Money & plans", icon: Landmark },
 ];
 
 const shortDate = date => (date ? new Date(date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—");
@@ -39,18 +42,36 @@ const SearchBox = ({ value, onChange, placeholder }) => (
 );
 
 const bookingStatus = booking =>
-  booking.refundId ? ["Refunded", "bg-brand-amber/15 text-brand-amber"]
+  booking.refundedAmount > 0 && booking.refundedAmount < booking.ticketPrice ? ["Part refunded", "bg-brand-amber/15 text-brand-amber"]
+    : booking.refundId || booking.refundedAmount > 0 ? ["Refunded", "bg-brand-amber/15 text-brand-amber"]
     : booking.status === "cancelled" ? ["Cancelled", "bg-muted text-muted-foreground"]
     : booking.status === "pending" ? ["Awaiting doctor", "bg-brand-amber/15 text-brand-amber"]
     : ["Confirmed", "bg-success/15 text-success"];
 
 const Overview = ({ stats, goTo }) => (
   <div className="space-y-6">
-    <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-      <StatCard icon={IndianRupee} tone="amber" label="Revenue" value={formatPrice(stats.revenue)} hint={`${formatPrice(stats.refunded)} refunded`} />
-      <StatCard icon={CalendarDays} label="Bookings" value={stats.bookings} hint={`${stats.cancelled} cancelled`} />
-      <StatCard icon={Users} tone="violet" label="Patients" value={stats.patients} hint="registered" />
-      <StatCard icon={Stethoscope} tone="highlight" label="Listed doctors" value={stats.doctors.approved} hint={`${stats.doctors.suspended} suspended`} />
+    <StatGroup
+      items={[
+        { icon: IndianRupee, tone: "amber", label: "Platform revenue", value: formatPrice(stats.platformRevenue), hint: `${Math.round(stats.commissionRate * 100)}% commission` },
+        { icon: CalendarDays, label: "Bookings", value: stats.bookings, hint: `${stats.cancelled} cancelled` },
+        { icon: Users, tone: "violet", label: "Patients", value: stats.patients, hint: "registered" },
+        { icon: Stethoscope, tone: "highlight", label: "Listed doctors", value: stats.doctors.approved, hint: `${stats.doctors.suspended} suspended` },
+      ]}
+    />
+
+    {/* where the money went: everything patients paid (GMV) = refunds + doctors' share + platform commission */}
+    <div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-border bg-border sm:grid-cols-4">
+      {[
+        ["Patients paid (GMV)", stats.gmv],
+        ["Refunded", stats.refunded],
+        ["Doctors' share", stats.doctorEarnings],
+        ["Platform commission", stats.platformRevenue],
+      ].map(([label, amount]) => (
+        <div key={label} className="bg-card px-4 py-3">
+          <p className="text-xs text-muted-foreground">{label}</p>
+          <p className="mt-0.5 font-bold">{formatPrice(amount)}</p>
+        </div>
+      ))}
     </div>
 
     {stats.doctors.pending > 0 && (
@@ -65,7 +86,7 @@ const Overview = ({ stats, goTo }) => (
     )}
 
     <div className="grid gap-6 xl:grid-cols-[1fr_320px]">
-      <SectionCard icon={BarChart3} title="Revenue, last 6 months" subtitle="Paid bookings, refunds left out">
+      <SectionCard icon={BarChart3} title="Payments, last 6 months" subtitle="What patients paid, minus refunds">
         <RevenueChart months={stats.months} />
       </SectionCard>
       <SectionCard icon={Stethoscope} title="Bookings by specialty">
@@ -297,7 +318,14 @@ const Bookings = () => {
 function AdminDashboard() {
   const { token, user, dispatch } = useContext(authContext);
   const navigate = useNavigate();
-  const [tab, setTab] = useState("overview");
+  const location = useLocation();
+  const sectionFromUrl = search => tabs.find(item => new URLSearchParams(search).has(item.id))?.id || "overview";
+  const [tab, setTabState] = useState(() => sectionFromUrl(window.location.search));
+  useEffect(() => setTabState(sectionFromUrl(location.search)), [location.search]);
+  const setTab = id => {
+    setTabState(id);
+    navigate({ search: id === "overview" ? "" : `?${id}` }, { replace: true });
+  };
   const [stats, setStats] = useState(null);
   const [error, setError] = useState("");
 
@@ -321,8 +349,8 @@ function AdminDashboard() {
   return (
     <section className="pt-8">
       <div className="container">
-        <div className="grid gap-8 lg:grid-cols-[260px_1fr]">
-          <aside className="lg:sticky lg:top-24 lg:h-fit">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[260px_minmax(0,1fr)]">
+          <aside className="min-w-0 lg:sticky lg:top-24 lg:h-fit">
             <div className="card-surface p-4 lg:p-5">
               <div className="flex items-center gap-3 lg:flex-col lg:text-center">
                 <Avatar src={user?.photo} name={user?.name} className="h-12 w-12 lg:h-20 lg:w-20" textClassName="lg:text-xl" />
@@ -333,29 +361,15 @@ function AdminDashboard() {
                   </span>
                 </div>
               </div>
-              <nav className="no-scrollbar -mx-1 mt-4 flex gap-1 overflow-x-auto px-1 lg:mt-6 lg:flex-col">
-                {tabs.map(({ id, label, icon: Icon }) => (
-                  <button
-                    key={id}
-                    onClick={() => setTab(id)}
-                    className={`relative flex shrink-0 items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors ${
-                      tab === id ? "text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                    }`}
-                  >
-                    {tab === id && (
-                      <motion.span layoutId="admin-sidebar" className="absolute inset-0 rounded-xl bg-primary/10" transition={{ type: "spring", stiffness: 400, damping: 32 }} />
-                    )}
-                    <Icon className="relative h-4 w-4" />
-                    <span className="relative">{label}</span>
-                    {id === "verification" && stats?.doctors.pending > 0 && (
-                      <span className="relative ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-brand-amber px-1.5 text-[11px] font-bold text-white">
-                        {stats.doctors.pending}
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </nav>
-              <div className="mt-4 border-t border-border pt-4 lg:mt-6 lg:pt-5">
+              <div className="mt-4 lg:mt-6">
+                <DashboardNav
+                  items={tabs.map(item => (item.id === "verification" ? { ...item, count: stats?.doctors.pending || 0 } : item))}
+                  tab={tab}
+                  onChange={setTab}
+                  layoutId="admin-sidebar"
+                />
+              </div>
+              <div className="mt-4 hidden border-t border-border pt-4 lg:mt-6 lg:block lg:pt-5">
                 <Button variant="outline" className="w-full" onClick={logout}><LogOut className="h-4 w-4" /> Log out</Button>
               </div>
             </div>
@@ -365,7 +379,7 @@ function AdminDashboard() {
             <div>
               <p className="text-sm text-muted-foreground">{todayLabel()}</p>
               <h1 className="mt-1 text-2xl font-extrabold tracking-tight sm:text-3xl">{greeting()}, admin 👋</h1>
-              <p className="mt-1 text-muted-foreground">Verify doctors and keep an eye on bookings and revenue.</p>
+              <p className="mt-1 text-muted-foreground">Verify doctors, keep an eye on bookings and revenue, and see the plans and money rules.</p>
             </div>
 
             {error && <p className="rounded-2xl bg-destructive/10 p-4 text-sm text-destructive">{error}</p>}
@@ -382,6 +396,7 @@ function AdminDashboard() {
                   {tab === "verification" && <Verification counts={stats.doctors} onChanged={loadStats} />}
                   {tab === "patients" && <Patients />}
                   {tab === "bookings" && <Bookings />}
+                  {tab === "money" && <MoneyAndPlans />}
                 </motion.div>
               </AnimatePresence>
             )}

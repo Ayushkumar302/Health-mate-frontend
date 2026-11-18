@@ -30,6 +30,13 @@ export const DEMO_ACCOUNTS = [
     password: DEMO_PASSWORD,
   },
   {
+    role: "doctor",
+    label: "New doctor",
+    description: "An applicant setting up: hours, payout account, then admin verification",
+    email: "karan.malhotra@applicant.test",
+    password: DEMO_PASSWORD,
+  },
+  {
     role: "admin",
     label: "Demo admin",
     description: "Verify doctor applications, see revenue and bookings",

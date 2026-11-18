@@ -51,7 +51,7 @@ const RespondButtons = ({ booking, onDone }) => {
         size="sm"
         icon={XCircle}
         title="Decline request"
-        subtitle={`${booking.user?.name || "Patient"} · ${formatAppointment(booking)}`}
+        subtitle={`${booking.familyMember?.name || booking.user?.name || "Patient"} · ${formatAppointment(booking)}`}
         footer={
           <>
             <Button variant="ghost" onClick={() => setDeclining(false)}>Keep it</Button>

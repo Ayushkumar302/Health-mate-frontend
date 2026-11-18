@@ -6,12 +6,13 @@ import { authContext } from "@/context/AuthContext";
 import { useCall } from "@/context/CallContext";
 
 // pages where a floating button would be in the way (the checker itself, calls, chat with its send box)
-const HIDDEN_ON = ["/symptom-checker", "/consultation", "/messages", "/login", "/register"];
+// dashboards and the plans page have the checker in their own menus
+const HIDDEN_ON = ["/symptom-checker", "/consultation", "/messages", "/login", "/register", "/users/profile/me", "/plans", "/book", "/reports"];
 
 // shortcut to the symptom checker in the bottom-right corner of every other page;
 // only for visitors and patients, the checker is a patient feature
 function SymptomFab() {
-  const { role } = useContext(authContext);
+  const { role, token } = useContext(authContext);
   const { call } = useCall();
   const { pathname } = useLocation();
 
@@ -22,7 +23,7 @@ function SymptomFab() {
     <AnimatePresence>
       {visible && (
         <motion.div
-          className="fixed bottom-4 right-4 z-40 sm:bottom-6 sm:right-6"
+          className={`fixed right-4 z-40 sm:right-6 md:bottom-6 ${token ? "bottom-[92px]" : "bottom-4 sm:bottom-6"}`}
           initial={{ opacity: 0, scale: 0.8, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.8, y: 20 }}

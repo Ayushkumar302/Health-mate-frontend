@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, BadgeCheck, Building2, Star } from "lucide-react";
+import { ArrowLeft, BadgeCheck, Building2, CalendarCheck2, Crown, Star } from "lucide-react";
 import DoctorAbout from "./DoctorAbout";
 import DoctorFeedback from "./DoctorFeedback";
 import SidePanel from "./SidePanel";
@@ -10,6 +10,7 @@ import useFetchData from "@/hooks/useFetchData";
 import Error from "@/components/Error/Error";
 import Avatar from "@/components/ui/avatar";
 import Aurora from "@/components/Home/Aurora";
+import { sizedImage } from "@/utils/image";
 
 const tabs = [
   { id: "about", label: "About" },
@@ -86,7 +87,7 @@ function DoctorsDetails() {
             >
               <div className="relative shrink-0">
                 {photo ? (
-                  <img src={photo} alt={name} className="h-32 w-32 rounded-2xl object-cover shadow-soft" />
+                  <img src={sizedImage(photo, 300)} alt={name} className="h-32 w-32 rounded-2xl object-cover shadow-soft" />
                 ) : (
                   <Avatar name={name} className="h-32 w-32 rounded-2xl" textClassName="text-3xl" />
                 )}
@@ -99,6 +100,16 @@ function DoctorsDetails() {
                 {specialization && (
                   <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold capitalize text-primary">
                     {specialization}
+                  </span>
+                )}
+                {doctor.planBadge && (
+                  <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-brand-amber/15 px-2.5 py-1 text-xs font-semibold text-brand-amber" title={`This doctor subscribes to Medora ${doctor.planBadge}`}>
+                    <Crown className="h-3 w-3" /> {doctor.planBadge}
+                  </span>
+                )}
+                {doctor.availableToday && (
+                  <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-success/15 px-2.5 py-1 text-xs font-semibold text-success">
+                    <CalendarCheck2 className="h-3 w-3" /> Available today
                   </span>
                 )}
                 <h1 className="mt-3 text-2xl font-extrabold tracking-tight sm:text-3xl">{name}</h1>
@@ -117,6 +128,28 @@ function DoctorsDetails() {
                 {bio && <p className="mt-3 text-[15px] leading-7 text-muted-foreground">{bio}</p>}
               </div>
             </motion.div>
+
+            {/* Pro Clinic: the doctor's clinic */}
+            {doctor.clinic?.name && (
+              <div className="mt-6 rounded-2xl border border-border bg-card p-4">
+                <div className="flex items-center gap-3">
+                  {doctor.clinic.logo
+                    ? <img src={sizedImage(doctor.clinic.logo, 120)} alt="" className="h-12 w-12 shrink-0 rounded-xl border border-border object-cover" />
+                    : <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary"><Building2 className="h-6 w-6" /></span>}
+                  <div className="min-w-0">
+                    <p className="truncate font-bold">{doctor.clinic.name}</p>
+                    <p className="truncate text-sm text-muted-foreground">{doctor.clinicAddress || "Clinic visits and online consultations"}</p>
+                  </div>
+                </div>
+                {doctor.clinic.photos?.length > 0 && (
+                  <div className="no-scrollbar mt-3 flex gap-2 overflow-x-auto">
+                    {doctor.clinic.photos.map(url => (
+                      <img key={url} src={sizedImage(url, 400)} alt={`${doctor.clinic.name}`} loading="lazy" decoding="async" className="h-28 w-40 shrink-0 rounded-xl object-cover" />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* tabs with an animated underline */}
             <div className="mt-8 flex gap-2 border-b border-border">
@@ -155,7 +188,7 @@ function DoctorsDetails() {
                     />
                   )}
                   {tab === 'feedback' && (
-                    <DoctorFeedback reviews={reviews} totalRating={totalRating} />
+                    <DoctorFeedback reviews={reviews} totalRating={totalRating} reviewSummary={doctor.reviewSummary} doctorName={doctor.name} />
                   )}
                 </motion.div>
               </AnimatePresence>

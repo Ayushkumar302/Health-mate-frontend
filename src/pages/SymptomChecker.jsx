@@ -11,6 +11,7 @@ import { authContext } from "@/context/AuthContext";
 import { apiRequest } from "@/utils/api";
 import { AGE_GROUPS, DURATIONS, SEVERITIES, SYMPTOM_CHIPS } from "@/utils/symptoms";
 import { DEMO_ACCOUNTS, DEMO_MODE } from "@/brand";
+import LanguagePicker, { useAiLanguage } from "@/components/AI/LanguagePicker";
 
 const MAX_LENGTH = 500;
 const demoPatient = DEMO_ACCOUNTS.find(account => account.role === "patient");
@@ -89,6 +90,8 @@ const SymptomChecker = () => {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const resultRef = useRef(null);
+  // the answer can come in Hindi and other Indian languages (symptoms can be typed in any language)
+  const [lang] = useAiLanguage();
 
   const set = changes => setForm(previous => ({ ...previous, ...changes }));
   const toggleChip = chip =>
@@ -106,7 +109,7 @@ const SymptomChecker = () => {
     setLoading(true);
     setSaved(false);
     try {
-      const result = await apiRequest("/symptom-check", { token, method: "POST", body: form });
+      const result = await apiRequest("/symptom-check", { token, method: "POST", body: { ...form, lang } });
       setData(result.data);
     } catch (error) {
       toast.error(error.message);
@@ -198,6 +201,7 @@ const SymptomChecker = () => {
                 </div>
 
                 <div className="flex flex-col items-center gap-2 border-t border-border pt-6">
+                  <LanguagePicker className="mb-1" />
                   <Button type="submit" size="lg" disabled={loading} className="w-full sm:w-auto">
                     {loading ? <><Spinner className="h-5 w-5 text-primary-foreground" /> Checking your symptoms…</> : <><Sparkles className="h-5 w-5" /> Check my symptoms</>}
                   </Button>

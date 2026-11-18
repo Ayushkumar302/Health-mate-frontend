@@ -1,6 +1,7 @@
 import { createContext, useEffect, useReducer } from "react";
 import { toast } from "react-toastify";
 import { SESSION_EXPIRED, isTokenExpired, tokenExpiry } from "@/utils/session";
+import { clearChats } from "@/utils/chatStorage";
 
 // older versions saved the strings "null"/"undefined" on logout, treat those as empty
 const readItem = key => {
@@ -56,6 +57,8 @@ export const AuthContextProvider = ({ children }) => {
       localStorage.removeItem("user");
       localStorage.removeItem("token");
       localStorage.removeItem("role");
+      // the assistants' conversations end with the session
+      clearChats();
     }
   }, [state]);
   // end the session the moment the token expires, or when the server says it's no longer valid;

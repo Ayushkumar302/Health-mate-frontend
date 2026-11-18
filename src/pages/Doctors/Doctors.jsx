@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, Search, SearchX, SlidersHorizontal, X } from "lucide-react";
+import { CalendarCheck2, ChevronLeft, ChevronRight, Search, SearchX, SlidersHorizontal, Sparkles, X } from "lucide-react";
+import Spinner from "@/components/ui/spinner";
 import DoctorCard, { DoctorCardSkeleton } from "@/components/Doctors/DoctorCard";
 import Error from "@/components/Error/Error";
 import PageHero from "@/components/Home/PageHero";
@@ -18,6 +19,14 @@ const PRICE_BANDS = [
   { value: "500-800", label: "₹500 – ₹800" },
   { value: "800-", label: "₹800 and above" },
 ];
+// a fee range from the AI search that isn't one of the bands is added as its own option
+const priceOptions = price => {
+  if (!price || PRICE_BANDS.some(band => band.value === price)) return PRICE_BANDS;
+  const [min, max] = price.split("-").map(Number);
+  const label = max ? (min ? `₹${min} – ₹${max}` : `Up to ₹${max}`) : `₹${min} and above`;
+  return [...PRICE_BANDS, { value: price, label }];
+};
+
 const RATINGS = [
   { value: "", label: "Any rating" },
   { value: "4", label: "4★ and up" },
@@ -91,10 +100,16 @@ function Doctors() {
     price: searchParams.get("price") || "",
     rating: searchParams.get("rating") || "",
     sort: searchParams.get("sort") || "recommended",
+    today: searchParams.get("today") === "1",
     page: Math.max(1, Number(searchParams.get("page")) || 1),
   };
   const [query, setQuery] = useState(filters.query);
+  // search in plain words ("skin doctor under 600 free today", Hindi too): the AI turns it into the filters below
+  const [ask, setAsk] = useState("");
+  const [asking, setAsking] = useState(false);
+  const [understood, setUnderstood] = useState(null);
   const [result, setResult] = useState(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -107,6 +122,7 @@ function Doctors() {
     if (next.price) params.price = next.price;
     if (next.rating) params.rating = next.rating;
     if (next.sort !== "recommended") params.sort = next.sort;
+    if (next.today) params.today = "1";
     if (next.page > 1) params.page = String(next.page);
     setSearchParams(params, { replace: !("page" in changes) });
   };
@@ -133,8 +149,9 @@ function Doctors() {
     if (minPrice) params.set("minPrice", minPrice);
     if (maxPrice) params.set("maxPrice", maxPrice);
     if (filters.rating) params.set("minRating", filters.rating);
+    if (filters.today) params.set("availableToday", "true");
     return params.toString();
-  }, [filters.query, filters.specialty, filters.price, filters.rating, filters.sort, filters.page]);
+  }, [filters.query, filters.specialty, filters.price, filters.rating, filters.sort, filters.today, filters.page]);
 
   useEffect(() => {
     let cancelled = false;
@@ -152,7 +169,48 @@ function Doctors() {
   const doctors = result?.data || [];
   const pagination = result?.pagination || { page: 1, pages: 1, total: 0 };
   const specialties = result?.facets?.specialties || [];
-  const activeCount = [filters.specialty, filters.price, filters.rating].filter(Boolean).length + (filters.query ? 1 : 0);
+  const activeCount = [filters.specialty, filters.price, filters.rating, filters.today].filter(Boolean).length + (filters.query ? 1 : 0);
+  const clearFilters = () => {
+    setQuery("");
+    setSearchParams({}, { replace: true });
+  };
+  // the same fields in the desktop row and the phone sheet
+  const filterFields = (
+    <>
+      <FilterSelect
+        label="Specialty"
+        value={filters.specialty.toLowerCase()}
+        onChange={specialty => update({ specialty })}
+        options={[{ value: "", label: "All specialties" }, ...specialties.map(item => ({ value: item.name, label: `${item.label || item.name} (${item.count})` }))]}
+      />
+      <FilterSelect label="Consultation fee" value={filters.price} onChange={price => update({ price })} options={priceOptions(filters.price)} />
+      <FilterSelect label="Patient rating" value={filters.rating} onChange={rating => update({ rating })} options={RATINGS} />
+      <FilterSelect label="Sort by" value={filters.sort} onChange={sort => update({ sort })} options={SORTS} />
+    </>
+  );
+
+  const askAi = async event => {
+    event.preventDefault();
+    if (ask.trim().length < 3) return;
+    setAsking(true);
+    try {
+      const { data } = await apiRequest(`/doctors/search/ai?q=${encodeURIComponent(ask.trim())}`);
+      const price = data.minPrice || data.maxPrice ? `${data.minPrice || 0}-${data.maxPrice || ""}` : "";
+      setQuery(data.name || "");
+      update({
+        query: data.name || "",
+        specialty: data.specialty || "",
+        price,
+        rating: data.minRating ? String(data.minRating) : "",
+        sort: data.sort || "recommended",
+        today: Boolean(data.availableToday),
+      });
+      setUnderstood({ text: data.understood || "All doctors", source: data.source });
+    } catch (error) {
+      setUnderstood({ text: error.message, error: true });
+    }
+    setAsking(false);
+  };
 
   const changePage = page => {
     update({ page });
@@ -197,6 +255,29 @@ function Doctors() {
           )}
         </form>
 
+        <form onSubmit={askAi} className="mx-auto mt-3 flex max-w-2xl flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="flex min-w-0 flex-1 items-center gap-2 rounded-full border border-primary/30 bg-card/70 px-3 py-1.5 focus-within:border-primary/60">
+            <Sparkles className="h-4 w-4 shrink-0 text-primary" />
+            <input
+              type="text"
+              value={ask}
+              maxLength={200}
+              onChange={e => setAsk(e.target.value)}
+              placeholder="Or describe it: child with fever, under ₹600, today"
+              className="min-w-0 flex-1 bg-transparent py-1 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+              aria-label="Describe the doctor you need"
+            />
+          </div>
+          <Button type="submit" size="sm" variant="soft" disabled={asking || ask.trim().length < 3}>
+            {asking ? <Spinner className="h-4 w-4" /> : "Find with AI"}
+          </Button>
+        </form>
+        {understood && (
+          <p className={`mx-auto mt-2 max-w-2xl text-center text-xs ${understood.error ? "text-destructive" : "text-muted-foreground"}`}>
+            {understood.error ? understood.text : <>Showing: <span className="font-semibold text-foreground">{understood.text}</span>{understood.source === "rules" && " (quick match)"}</>}
+          </p>
+        )}
+
         <div className="mx-auto mt-5 flex max-w-3xl flex-wrap justify-center gap-2">
           {specialties.map(item => {
             const active = filters.specialty.toLowerCase() === item.name;
@@ -221,33 +302,67 @@ function Doctors() {
       <section className="pt-0">
         <div className="container">
           <NextAppointment />
-          <div className="mb-6">
+          {/* on phones the floating button and the menu lead to the checker, so the card would only push results down */}
+          <div className="mb-6 hidden sm:block">
             <SymptomCheckCard />
           </div>
 
-          {/* filters */}
-          <div className="card-surface mb-6 grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-[repeat(4,minmax(0,1fr))_auto] lg:items-end">
-            <FilterSelect
-              label="Specialty"
-              value={filters.specialty.toLowerCase()}
-              onChange={specialty => update({ specialty })}
-              options={[{ value: "", label: "All specialties" }, ...specialties.map(item => ({ value: item.name, label: `${item.label || item.name} (${item.count})` }))]}
-            />
-            <FilterSelect label="Consultation fee" value={filters.price} onChange={price => update({ price })} options={PRICE_BANDS} />
-            <FilterSelect label="Patient rating" value={filters.rating} onChange={rating => update({ rating })} options={RATINGS} />
-            <FilterSelect label="Sort by" value={filters.sort} onChange={sort => update({ sort })} options={SORTS} />
-            <Button
-              variant="ghost"
-              className="h-10"
-              disabled={activeCount === 0}
-              onClick={() => {
-                setQuery("");
-                setSearchParams({}, { replace: true });
-              }}
-            >
+          {/* filters: a row on larger screens */}
+          <div className="card-surface mb-6 hidden gap-3 p-4 sm:grid sm:grid-cols-2 lg:grid-cols-[repeat(4,minmax(0,1fr))_auto] lg:items-end">
+            {filterFields}
+            <Button variant="ghost" className="h-10" disabled={activeCount === 0} onClick={clearFilters}>
               <X className="h-4 w-4" /> Clear{activeCount > 0 && ` (${activeCount})`}
             </Button>
           </div>
+
+          {/* on phones: one sticky bar with the count, the filters open in a sheet from the bottom */}
+          <div className="sticky top-[72px] z-30 -mx-4 mb-4 flex items-center gap-3 border-b border-border bg-background/95 px-4 py-2.5 backdrop-blur-xl sm:hidden">
+            <p className="min-w-0 flex-1 truncate text-sm font-semibold">
+              {loading ? "Searching…" : `${pagination.total} ${pagination.total === 1 ? "doctor" : "doctors"}`}
+            </p>
+            <Button size="sm" variant={activeCount ? "default" : "outline"} onClick={() => setSheetOpen(true)} aria-expanded={sheetOpen}>
+              <SlidersHorizontal className="h-4 w-4" /> Filters{activeCount > 0 && ` (${activeCount})`}
+            </Button>
+          </div>
+          <AnimatePresence>
+            {sheetOpen && (
+              <>
+                <motion.button
+                  type="button"
+                  aria-label="Close filters"
+                  className="fixed inset-0 z-[70] bg-slate-950/40 sm:hidden"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setSheetOpen(false)}
+                />
+                <motion.div
+                  role="dialog"
+                  aria-label="Filters"
+                  className="fixed inset-x-0 bottom-0 z-[71] max-h-[85vh] overflow-y-auto rounded-t-3xl border-t border-border bg-popover px-4 pb-[calc(16px+env(safe-area-inset-bottom))] pt-3 shadow-panelShadow sm:hidden"
+                  initial={{ y: "100%" }}
+                  animate={{ y: 0 }}
+                  exit={{ y: "100%", transition: { duration: 0.18, ease: "easeIn" } }}
+                  transition={{ type: "spring", stiffness: 380, damping: 36 }}
+                >
+                  <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-border" />
+                  <div className="flex items-center justify-between">
+                    <p className="text-lg font-bold">Filters</p>
+                    <button type="button" onClick={() => setSheetOpen(false)} aria-label="Close filters" className="grid h-9 w-9 place-items-center rounded-full hover:bg-muted">
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
+                  <div className="mt-3 grid gap-3">{filterFields}</div>
+                  <div className="mt-5 grid grid-cols-2 gap-2">
+                    <Button variant="outline" disabled={activeCount === 0} onClick={clearFilters}>Clear all</Button>
+                    <Button onClick={() => setSheetOpen(false)}>
+                      {loading ? <Spinner className="h-4 w-4" /> : `Show ${pagination.total} ${pagination.total === 1 ? "doctor" : "doctors"}`}
+                    </Button>
+                  </div>
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
 
           {!loading && !error && (
             <p className="mb-6 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
@@ -255,6 +370,19 @@ function Doctors() {
               {pagination.total} {pagination.total === 1 ? "doctor" : "doctors"} found
               {filters.query && <> for &ldquo;<span className="font-semibold text-foreground">{filters.query}</span>&rdquo;</>}
               {pagination.pages > 1 && <span>· page {pagination.page} of {pagination.pages}</span>}
+              {/* doctors with a free slot today (shown while there are any, or while the filter is on) */}
+              {(result?.availableToday > 0 || filters.today) && (
+                <button
+                  type="button"
+                  aria-pressed={filters.today}
+                  onClick={() => update({ today: !filters.today })}
+                  className={`ml-auto flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    filters.today ? "border-success bg-success/15 text-success" : "border-border bg-card text-foreground hover:border-success/60"
+                  }`}
+                >
+                  <CalendarCheck2 className="h-3.5 w-3.5" /> Available today
+                </button>
+              )}
             </p>
           )}
 

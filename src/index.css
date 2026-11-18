@@ -189,3 +189,20 @@
     display: none;
   }
 }
+
+/* readable text colours in light mode: small coloured text (badges, "Verified", status pills) needs at
+   least 4.5:1 contrast (WCAG AA). Only the text shades are darker; buttons and fills keep the brand colours.
+   :where() keeps these as weak as the colour class itself, so hover colours (hover:text-white...) still win. */
+:where(:root:not(.dark)) .text-primary { color: hsl(208 55% 38%); }
+:where(:root:not(.dark)) .text-success { color: hsl(158 55% 27%); }
+:where(:root:not(.dark)) .text-highlight { color: hsl(164 50% 30%); }
+:where(:root:not(.dark)) .text-brand-amber { color: hsl(30 90% 32%); }
+:where(:root:not(.dark)) .text-brand-violet { color: hsl(228 42% 44%); }
+
+/* toasts sit bottom right; on phones they stay above the bottom menu bar */
+@media (max-width: 767px) {
+  /* (body: stronger than react-toastify's own phone rule, which pins them to the very bottom) */
+  body .Toastify__toast-container--bottom-right {
+    bottom: calc(84px + env(safe-area-inset-bottom));
+  }
+}

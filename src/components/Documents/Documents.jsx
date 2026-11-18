@@ -13,8 +13,9 @@ import { formatDay } from "@/utils/health";
 const MAX_BYTES = 5 * 1024 * 1024;
 const ACCEPT = "application/pdf,image/png,image/jpeg";
 
-// list of uploaded files with View (and Delete for the owner)
-export const DocumentList = ({ documents, onDeleted, canDelete = false, empty = "No files yet" }) => {
+// list of uploaded files with View (and Delete for the owner).
+// members: the patient's family, to show whose report it is; extra: more buttons for a file (e.g. Explain)
+export const DocumentList = ({ documents, onDeleted, canDelete = false, empty = "No files yet", members = [], extra }) => {
   const { token } = useContext(authContext);
   const [busyId, setBusyId] = useState(null);
   const confirm = useConfirm();
@@ -47,8 +48,9 @@ export const DocumentList = ({ documents, onDeleted, canDelete = false, empty = 
     <ul className="divide-y divide-border">
       {documents.map(document => {
         const Icon = document.mimeType === "application/pdf" ? FileText : FileImage;
+        const member = document.member && members.find(item => item._id === document.member);
         return (
-          <li key={document._id} className="flex items-center gap-3 py-3">
+          <li key={document._id} className="flex flex-wrap items-center gap-3 py-3">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
               <Icon className="h-5 w-5" />
             </span>
@@ -56,8 +58,10 @@ export const DocumentList = ({ documents, onDeleted, canDelete = false, empty = 
               <p className="truncate text-sm font-semibold">{document.title}</p>
               <p className="truncate text-xs text-muted-foreground">
                 {CATEGORY_LABELS[document.category]} · {document.reportDate ? formatDay(document.reportDate) : new Date(document.createdAt).toLocaleDateString("en-IN")} · {formatSize(document.size)}
+                {member && ` · for ${member.name}`}
               </p>
             </div>
+            {extra?.(document)}
             <Button size="sm" variant="outline" onClick={() => view(document)}><Eye className="h-4 w-4" /> View</Button>
             {canDelete && (
               document.locked ? (
@@ -76,10 +80,11 @@ export const DocumentList = ({ documents, onDeleted, canDelete = false, empty = 
 };
 
 // drop zone + type/title/date, uploads one PDF/JPG/PNG up to 5 MB
-export const UploadDocument = ({ categories, withDate = false, onUploaded }) => {
+export const UploadDocument = ({ categories, withDate = false, onUploaded, members = [] }) => {
   const { token } = useContext(authContext);
   const inputRef = useRef(null);
   const [file, setFile] = useState(null);
+  const [memberId, setMemberId] = useState("");
   const [category, setCategory] = useState(categories[0]);
   const [title, setTitle] = useState("");
   const [reportDate, setReportDate] = useState("");
@@ -98,6 +103,7 @@ export const UploadDocument = ({ categories, withDate = false, onUploaded }) => 
     setFile(null);
     setTitle("");
     setReportDate("");
+    setMemberId("");
     if (inputRef.current) inputRef.current.value = "";
   };
 
@@ -106,7 +112,7 @@ export const UploadDocument = ({ categories, withDate = false, onUploaded }) => 
     if (!file) return;
     setUploading(true);
     try {
-      const document = await uploadDocument(token, { file, category, title: title.trim(), reportDate });
+      const document = await uploadDocument(token, { file, category, title: title.trim(), reportDate, memberId });
       toast.success("Uploaded");
       onUploaded?.(document);
       reset();
@@ -146,6 +152,17 @@ export const UploadDocument = ({ categories, withDate = false, onUploaded }) => 
       </button>
       <input ref={inputRef} type="file" accept={ACCEPT} className="hidden" onChange={event => pick(event.target.files?.[0])} />
 
+      {file && members.length > 0 && (
+        <select
+          value={memberId}
+          onChange={event => setMemberId(event.target.value)}
+          className="h-11 w-full rounded-xl border border-input bg-background/60 px-3 text-sm focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/15"
+          aria-label="Whose report is this"
+        >
+          <option value="">My own report</option>
+          {members.map(member => <option key={member._id} value={member._id}>For {member.name}</option>)}
+        </select>
+      )}
       {file && (
         <div className={`grid gap-3 ${withDate ? "sm:grid-cols-[1fr_1fr_160px]" : "sm:grid-cols-2"}`}>
           <select

@@ -11,7 +11,7 @@ function App() {
     <MotionConfig reducedMotion="user">
       <ToastContainer
         theme={theme === 'dark' ? 'dark' : 'light'}
-        position='top-right'
+        position='bottom-right'
         autoClose={2500}
         closeOnClick
         pauseOnHover={false}

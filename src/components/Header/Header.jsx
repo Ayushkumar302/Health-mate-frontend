@@ -1,11 +1,12 @@
 import { useContext, useEffect, useRef, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { LayoutDashboard, LogOut, Menu, MessageSquare, X } from 'lucide-react';
+import { ClipboardList, LayoutDashboard, LogOut, Menu, MessageSquare, MessageSquareText, Sparkles, X } from 'lucide-react';
 import { useMessages } from '../../context/MessagesContext.jsx';
 import { dashboardPathFor } from '@/brand';
 import { authContext } from '../../context/AuthContext.jsx';
 import Logo from '../Brand/Logo';
+import NotificationBell from './NotificationBell';
 import ThemeToggle from '../Theme/ThemeToggle';
 import Avatar from '../ui/avatar';
 import { Button } from '../ui/button';
@@ -79,7 +80,7 @@ function Header() {
         <Logo />
 
         {/* desktop navigation with a sliding active pill */}
-        <nav className="hidden md:block">
+        <nav className="hidden lg:block">
           <ul className="flex items-center gap-1 rounded-full border border-border/70 bg-card/50 p-1 backdrop-blur">
             {navLinks.map(link => {
               const active = isLinkActive(link.path, pathname);
@@ -107,12 +108,15 @@ function Header() {
         </nav>
 
         <div className="flex items-center gap-2 sm:gap-3">
-          <ThemeToggle />
+          {/* on a phone, logged-in patients and doctors find the theme switch in the menu (the bar is full) */}
+          <div className={token && canMessage ? 'hidden sm:block' : ''}>
+            <ThemeToggle />
+          </div>
 
           {token && canMessage && (
             <Link
               to="/messages"
-              className="relative grid h-10 w-10 place-items-center rounded-full border border-border bg-card/70 text-foreground transition-colors hover:border-primary/50 hover:text-primary"
+              className="relative hidden h-10 w-10 place-items-center rounded-full border border-border bg-card/70 text-foreground transition-colors hover:border-primary/50 hover:text-primary md:grid"
               aria-label={unread ? `Messages, ${unread} unread` : 'Messages'}
               title="Messages"
             >
@@ -125,12 +129,14 @@ function Header() {
             </Link>
           )}
 
+          {token && canMessage && <NotificationBell />}
+
           {token && user ? (
             <div className="relative" ref={accountRef}>
               <button
                 type="button"
                 onClick={() => setAccountOpen(open => !open)}
-                className="flex items-center gap-2 rounded-full border border-border bg-card/70 p-1 pr-3 backdrop-blur transition-colors hover:border-primary/50"
+                className="flex items-center gap-2 rounded-full border border-border bg-card/70 p-1 backdrop-blur transition-colors hover:border-primary/50 sm:pr-3"
                 aria-expanded={accountOpen}
               >
                 <Avatar src={user?.photo} name={user?.name} className="h-8 w-8" textClassName="text-xs" />
@@ -159,6 +165,24 @@ function Header() {
                     >
                       <LayoutDashboard className="h-4 w-4 text-primary" /> My dashboard
                     </Link>
+                    {canMessage && (
+                      <Link
+                        to={role === 'doctor' ? '/reports' : '/book'}
+                        className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium hover:bg-muted"
+                      >
+                        {role === 'doctor'
+                          ? <><ClipboardList className="h-4 w-4 text-primary" /> Patient reports with AI</>
+                          : <><MessageSquareText className="h-4 w-4 text-primary" /> Book with AI</>}
+                      </Link>
+                    )}
+                    {canMessage && (
+                      <Link
+                        to="/plans"
+                        className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium hover:bg-muted"
+                      >
+                        <Sparkles className="h-4 w-4 text-primary" /> {role === 'doctor' ? 'Medora Pro plans' : 'Medora Plus plans'}
+                      </Link>
+                    )}
                     <button
                       type="button"
                       onClick={handleLogout}
@@ -178,7 +202,7 @@ function Header() {
 
           <button
             type="button"
-            className="grid h-10 w-10 place-items-center rounded-full border border-border bg-card/70 md:hidden"
+            className="grid h-10 w-10 place-items-center rounded-full border border-border bg-card/70 lg:hidden"
             onClick={() => setMenuOpen(open => !open)}
             aria-label={menuOpen ? 'Close menu' : 'Open menu'}
             aria-expanded={menuOpen}
@@ -196,7 +220,7 @@ function Header() {
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.25, ease: 'easeOut' }}
-            className="overflow-hidden border-t border-border bg-background/95 backdrop-blur-xl md:hidden"
+            className="overflow-hidden border-t border-border bg-background/95 backdrop-blur-xl lg:hidden"
           >
             <ul className="container flex flex-col gap-1 py-4">
               {navLinks.map((link, index) => (
@@ -216,6 +240,11 @@ function Header() {
                   </NavLink>
                 </motion.li>
               ))}
+              {token && canMessage && (
+                <li className="flex items-center justify-between rounded-xl px-4 py-2 text-base font-semibold sm:hidden">
+                  Theme <ThemeToggle />
+                </li>
+              )}
               {!token && (
                 <li className="pt-2">
                   <Link to="/login" state={loginState}>

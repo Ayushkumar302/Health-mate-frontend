@@ -115,11 +115,11 @@ function Login() {
               const Icon = { doctor: Stethoscope, admin: ShieldCheck }[account.role] || UserRound
               return (
                 <button
-                  key={account.role}
+                  key={account.email}
                   type="button"
                   disabled={loading}
                   onClick={() => loginAsDemo(account)}
-                  className={`group flex items-start gap-3 rounded-xl border border-border bg-card p-3 text-left transition-all hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-soft disabled:opacity-60 ${account.role === 'admin' ? 'sm:col-span-2' : ''}`}
+                  className={`group flex items-start gap-3 rounded-xl border border-border bg-card p-3 text-left transition-all hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-soft disabled:opacity-60`}
                 >
                   <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
                     <Icon className="h-[18px] w-[18px]" />

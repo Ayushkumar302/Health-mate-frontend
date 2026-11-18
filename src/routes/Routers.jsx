@@ -23,8 +23,11 @@ const Dashboard = lazy(() => import("@/dashboard/doctor-account/Dashboard"));
 const AdminDashboard = lazy(() => import("@/dashboard/admin/AdminDashboard"));
 const VideoConsultation = lazy(() => import("@/pages/VideoConsultation"));
 const Messages = lazy(() => import("@/pages/Messages"));
+const Plans = lazy(() => import("@/pages/Plans"));
 const PrescriptionView = lazy(() => import("@/pages/PrescriptionView"));
 const SymptomChecker = lazy(() => import("@/pages/SymptomChecker"));
+const Book = lazy(() => import("@/pages/Book"));
+const ReportAssistant = lazy(() => import("@/pages/ReportAssistant"));
 const VerifyEmail = lazy(() => import("@/pages/EmailFlows").then(module => ({ default: module.VerifyEmail })));
 const CheckEmail = lazy(() => import("@/pages/EmailFlows").then(module => ({ default: module.CheckEmail })));
 
@@ -101,6 +104,31 @@ function Routers({ location }) {
         element={
           <ProtectedRoute allowedRoles={["patient", "doctor"]}>
             <PrescriptionView />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/plans"
+        element={
+          <ProtectedRoute allowedRoles={["patient", "doctor"]}>
+            <Plans />
+          </ProtectedRoute>
+        }
+      />
+      {/* the AI assistants: booking with AI (patients) and patient reports (doctors) */}
+      <Route
+        path="/book"
+        element={
+          <ProtectedRoute allowedRoles={["patient"]}>
+            <Book />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/reports"
+        element={
+          <ProtectedRoute allowedRoles={["doctor"]}>
+            <ReportAssistant />
           </ProtectedRoute>
         }
       />

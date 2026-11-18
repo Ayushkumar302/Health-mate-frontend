@@ -1,7 +1,7 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, Check, CheckCheck, ClipboardList, Lock, MessageSquarePlus, MessagesSquare, Search, SendHorizontal, Stethoscope } from "lucide-react";
+import { ArrowLeft, Check, CheckCheck, ClipboardList, Lock, MessageSquarePlus, MessagesSquare, Search, SendHorizontal, Sparkles, Stethoscope } from "lucide-react";
 import { toast } from "react-toastify";
 import { authContext } from "@/context/AuthContext";
 import { useMessages } from "@/context/MessagesContext";
@@ -125,6 +125,8 @@ const Thread = ({ conversation, myRole, onBack }) => {
   const [sending, setSending] = useState(false);
   const [typing, setTyping] = useState(false);
   const [recordOpen, setRecordOpen] = useState(false);
+  // patients: whether they can write now (open while a booking is coming up, then for the follow-up days)
+  const [chat, setChat] = useState({ open: true });
   const listRef = useRef(null);
   const stickToBottomRef = useRef(true);
   const typingTimerRef = useRef(null);
@@ -153,6 +155,7 @@ const Thread = ({ conversation, myRole, onBack }) => {
         setMessages(result.data.messages);
         setHasMore(result.data.hasMore);
         setMaxLength(result.data.limits.maxLength);
+        setChat(result.data.chat || { open: true });
         stickToBottomRef.current = true;
         markRead();
       })
@@ -174,6 +177,8 @@ const Thread = ({ conversation, myRole, onBack }) => {
           if (payload.message.senderRole !== myRole) {
             setTyping(false);
             markRead();
+            // a patient can always answer a doctor who just wrote
+            setChat(current => (current.open ? current : { ...current, open: true, reason: undefined }));
           }
         }
         if (event === "dm:read" && payload.readBy !== myRole) {
@@ -226,7 +231,8 @@ const Thread = ({ conversation, myRole, onBack }) => {
       addMessage(result.data);
       setText("");
     } catch (error) {
-      toast.error(error.message);
+      if (error.code === "FOLLOW_UP_CLOSED") setChat(current => ({ ...current, open: false, reason: error.message }));
+      else toast.error(error.message);
     } finally {
       setSending(false);
     }
@@ -292,7 +298,7 @@ const Thread = ({ conversation, myRole, onBack }) => {
           </div>
         )}
         {!loading && messages.length === 0 && (
-          <EmptyState icon={MessagesSquare} title="Say hello" text={`Ask ${other.name} a question about your treatment, reports or next visit.`} />
+          <EmptyState icon={MessagesSquare} title={chat.open ? "Say hello" : "No messages yet"} text={chat.open ? `Ask ${other.name} a question about your treatment, reports or next visit.` : undefined} />
         )}
         {messages.map((message, index) => {
           const mine = message.senderRole === myRole;
@@ -345,7 +351,20 @@ const Thread = ({ conversation, myRole, onBack }) => {
         </AnimatePresence>
       </div>
 
-      {/* composer */}
+      {/* composer, or why the patient can't write right now */}
+      {!chat.open ? (
+        <div className="border-t border-border p-4">
+          <p className="flex items-start gap-2 text-sm text-muted-foreground">
+            <Lock className="mt-0.5 h-4 w-4 shrink-0 text-primary" /> {chat.reason}
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Link to={`/doctors/${other._id}`}><Button size="sm"><Stethoscope className="h-4 w-4" /> Book an appointment</Button></Link>
+            {!chat.plus && (
+              <Link to="/plans"><Button size="sm" variant="outline"><Sparkles className="h-4 w-4" /> Medora Plus</Button></Link>
+            )}
+          </div>
+        </div>
+      ) : (
       <form onSubmit={send} className="border-t border-border p-3">
         <div className="flex items-end gap-2">
           <textarea
@@ -362,11 +381,15 @@ const Thread = ({ conversation, myRole, onBack }) => {
             {sending ? <Spinner className="h-4 w-4 text-primary-foreground" /> : <SendHorizontal className="h-5 w-5" />}
           </Button>
         </div>
-        <p className="mt-1.5 flex justify-between px-2 text-[11px] text-muted-foreground">
-          <span>Enter to send · Shift + Enter for a new line</span>
+        <p className="mt-1.5 flex justify-between gap-2 px-2 text-[11px] text-muted-foreground">
+          <span>
+            Enter to send · Shift + Enter for a new line
+            {chat.until && ` · follow-up chat open until ${new Date(chat.until).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`}
+          </span>
           {nearLimit && <span className={text.length >= maxLength ? "font-semibold text-destructive" : ""}>{text.length}/{maxLength}</span>}
         </p>
       </form>
+      )}
 
       {myRole === "doctor" && (
         <PatientRecordModal open={recordOpen} onClose={() => setRecordOpen(false)} patientId={other._id} patientName={other.name} />

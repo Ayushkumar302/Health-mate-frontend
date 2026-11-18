@@ -5,8 +5,10 @@ import { authContext } from "@/context/AuthContext";
 import { apiRequest } from "@/utils/api";
 import { DocumentList, UploadDocument } from "./Documents";
 
-// the logged-in person's own files: medical reports (patients) or verification documents (doctors)
-const MyDocuments = ({ icon, title, subtitle, note, categories, withDate = false, empty }) => {
+// the logged-in person's own files: medical reports (patients) or verification documents (doctors).
+// members: the patient's family (Plus Family), so a report can be filed under one of them;
+// extra: more buttons per file (the lab report explainer)
+const MyDocuments = ({ icon, title, subtitle, note, categories, withDate = false, empty, members = [], extra }) => {
   const { token } = useContext(authContext);
   const [documents, setDocuments] = useState(null);
 
@@ -22,7 +24,7 @@ const MyDocuments = ({ icon, title, subtitle, note, categories, withDate = false
   return (
     <SectionCard icon={icon} title={title} subtitle={subtitle}>
       {note && <p className="mb-4 rounded-xl bg-muted/60 px-4 py-3 text-sm text-muted-foreground">{note}</p>}
-      <UploadDocument categories={categories} withDate={withDate} onUploaded={document => setDocuments(list => [document, ...(list || [])])} />
+      <UploadDocument categories={categories} withDate={withDate} members={members} onUploaded={document => setDocuments(list => [document, ...(list || [])])} />
       <div className="mt-5">
         {!documents ? (
           <div className="skeleton h-16 rounded-xl" />
@@ -31,6 +33,8 @@ const MyDocuments = ({ icon, title, subtitle, note, categories, withDate = false
             documents={documents}
             canDelete
             empty={empty}
+            members={members}
+            extra={extra}
             onDeleted={id => setDocuments(list => list.filter(item => item._id !== id))}
           />
         )}

@@ -17,6 +17,7 @@ import { authContext } from "@/context/AuthContext";
 import { DEMO_MODE } from "@/brand";
 import { toast } from "react-toastify";
 import { useContext, useEffect, useState } from "react";
+import OffersSetting from "@/components/Header/OffersSetting";
 
 const ProfileSetting = ({user}) => {
   // shared demo patients keep the name and photo doctors and reviews show
@@ -215,6 +216,11 @@ const ProfileSetting = ({user}) => {
           {loading ? <Spinner className="text-primary-foreground" /> : "Save changes"}
         </Button>
       </form>
+
+      <div className="mt-8 border-t border-border pt-2">
+        <h3 className="pt-4 text-base font-bold">Notifications</h3>
+        <OffersSetting />
+      </div>
     </div>
   );
 };

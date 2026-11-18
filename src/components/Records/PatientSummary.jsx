@@ -7,7 +7,7 @@ import { authContext } from "@/context/AuthContext";
 import { apiRequest } from "@/utils/api";
 
 // top of the patient record: the record in 3 lines before the consultation (asked for, not automatic)
-const PatientSummary = ({ patientId }) => {
+const PatientSummary = ({ patientId, memberId }) => {
   const { token } = useContext(authContext);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -15,7 +15,7 @@ const PatientSummary = ({ patientId }) => {
   const summarize = async () => {
     setLoading(true);
     try {
-      const result = await apiRequest(`/prescriptions/patients/${patientId}/summary`, { token, method: "POST" });
+      const result = await apiRequest(`/prescriptions/patients/${patientId}/summary${memberId ? `?member=${memberId}` : ""}`, { token, method: "POST" });
       setData(result.data);
     } catch (error) {
       toast.error(error.message);

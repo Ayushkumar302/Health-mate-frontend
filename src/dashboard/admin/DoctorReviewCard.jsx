@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Ban, CheckCircle2, Circle, Copy, ExternalLink, GraduationCap, Hospital, Lock, Mail, Phone, RotateCcw, ShieldCheck, XCircle } from "lucide-react";
+import { Ban, CheckCircle2, Circle, Copy, ExternalLink, GraduationCap, Hospital, Lock, Mail, Phone, Rocket, RotateCcw, ShieldCheck, XCircle } from "lucide-react";
 import { DocumentList } from "@/components/Documents/Documents";
 import { useConfirm } from "@/context/ConfirmContext";
 import { toast } from "react-toastify";
@@ -195,6 +195,23 @@ const DoctorReviewCard = ({ doctor, onAction }) => {
               </li>
             ))}
           </ul>
+          {/* the doctor's own setup: they're only listed once it's done, even after approval */}
+          {doctor.onboarding && (
+            <>
+              <p className="mt-4 flex items-center gap-2 border-t border-border pt-3 text-sm font-bold">
+                <Rocket className="h-4 w-4 text-primary" /> Doctor&apos;s setup
+                <span className="ml-auto text-xs font-semibold text-muted-foreground">{doctor.onboarding.listed ? "Listed" : "Not listed yet"}</span>
+              </p>
+              <ul className="mt-2 space-y-2 text-sm">
+                {doctor.onboarding.steps.filter(step => step.id !== "verified").map(step => (
+                  <li key={step.id} className="flex items-center gap-2">
+                    {step.done ? <CheckCircle2 className="h-4 w-4 text-success" /> : <Circle className="h-4 w-4 text-muted-foreground" />}
+                    <span className={step.done ? "" : "text-muted-foreground"}>{step.label.replace(/^(Complete|Set|Connect) (your |a )?/, "").replace(/^./, c => c.toUpperCase())}</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </div>
       </div>
 
@@ -212,7 +229,7 @@ const DoctorReviewCard = ({ doctor, onAction }) => {
           <>
             {status !== "approved" && (
               <Button size="sm" disabled={busy} onClick={approve}>
-                {status === "pending" ? <><CheckCircle2 className="h-4 w-4" /> Approve & list</> : <><RotateCcw className="h-4 w-4" /> Re-approve</>}
+                {status === "pending" ? <><CheckCircle2 className="h-4 w-4" /> Approve</> : <><RotateCcw className="h-4 w-4" /> Re-approve</>}
               </Button>
             )}
             {status === "pending" && (

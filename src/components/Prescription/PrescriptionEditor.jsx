@@ -1,5 +1,6 @@
 import { useContext, useEffect, useState } from "react";
-import { AlertTriangle, FilePenLine, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, FilePenLine, Lock, Plus, Sparkles, Trash2 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
 import Modal from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import ChipInput from "@/components/ui/chip-input";
 import { authContext } from "@/context/AuthContext";
 import { apiRequest } from "@/utils/api";
 import { formatDay, patientSummary } from "@/utils/health";
+import { patientOf } from "@/utils/family";
 
 const emptyMedicine = () => ({ name: "", dosage: "", frequency: "", duration: "", instructions: "" });
 
@@ -33,14 +35,18 @@ const PrescriptionEditor = ({ open, onClose, booking, onSaved }) => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [exists, setExists] = useState(false);
-  const patient = booking?.user;
+  // the person the visit was for (a family member on Plus Family, or the account holder)
+  const patient = patientOf(booking);
+  const memberQuery = patient?.memberId ? `?member=${patient.memberId}` : "";
 
   useEffect(() => {
     if (!open || !booking) return;
     setLoading(true);
+    setNotes("");
+    setDraftInfo(null);
     Promise.all([
       apiRequest(`/prescriptions/booking/${booking._id}`, { token }),
-      patient?._id ? apiRequest(`/prescriptions/patients/${patient._id}/record`, { token }).catch(() => null) : null,
+      patient?._id ? apiRequest(`/prescriptions/patients/${patient._id}/record${memberQuery}`, { token }).catch(() => null) : null,
     ])
       .then(([prescription, patientRecord]) => {
         const saved = prescription.data;
@@ -61,9 +67,36 @@ const PrescriptionEditor = ({ open, onClose, booking, onSaved }) => {
       })
       .catch(error => toast.error(error.message))
       .finally(() => setLoading(false));
-  }, [open, booking, patient?._id, token]);
+  }, [open, booking, patient?._id, memberQuery, token]);
 
   const set = (field, value) => setForm(current => ({ ...current, [field]: value }));
+
+  // Pro / Pro Clinic: rough notes -> the form filled in by AI (nothing is saved until the doctor saves)
+  const [notes, setNotes] = useState("");
+  const [drafting, setDrafting] = useState(false);
+  const [draftInfo, setDraftInfo] = useState(null);
+  const draft = async () => {
+    setDrafting(true);
+    setDraftInfo(null);
+    try {
+      const result = await apiRequest(`/prescriptions/booking/${booking._id}/draft`, { token, method: "POST", body: { notes } });
+      const data = result.data;
+      setForm(current => ({
+        diagnosis: data.diagnosis || current.diagnosis,
+        symptoms: data.symptoms || current.symptoms,
+        medicines: data.medicines.length ? data.medicines.map(medicine => ({ ...emptyMedicine(), ...medicine })) : current.medicines,
+        tests: data.tests.length ? data.tests : current.tests,
+        advice: data.advice || current.advice,
+        followUpDate: data.followUpDays ? plusDays(booking.appointmentDate, data.followUpDays) : current.followUpDate,
+      }));
+      setDraftInfo({ warnings: data.warnings });
+      toast.success(result.message);
+    } catch (error) {
+      if (error.code === "plan") setDraftInfo({ locked: error.message });
+      else toast.error(error.message);
+    }
+    setDrafting(false);
+  };
 
   const setMedicine = (index, field, value) =>
     setForm(current => ({
@@ -113,6 +146,37 @@ const PrescriptionEditor = ({ open, onClose, booking, onSaved }) => {
         <div className="flex justify-center py-16"><Spinner /></div>
       ) : (
         <form onSubmit={save} className="space-y-6">
+          <div className="rounded-2xl border border-primary/25 bg-primary/5 p-4">
+            <label htmlFor="rx-notes" className="flex items-center gap-2 text-sm font-bold"><Sparkles className="h-4 w-4 text-primary" /> Draft from your notes</label>
+            <p className="mt-0.5 text-xs text-muted-foreground">Type the way you&apos;d scribble it. The AI fills in the form below, you check every field and save.</p>
+            <Textarea
+              id="rx-notes"
+              rows={2}
+              maxLength={2000}
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              className="mt-2"
+              placeholder="e.g. fever 3d, throat red, azithro 500 od x3d, pcm 650 sos, cbc, warm saline gargles, review 1 wk"
+            />
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <Button type="button" size="sm" onClick={draft} disabled={drafting || notes.trim().length < 5}>
+                {drafting ? <><Spinner className="h-4 w-4 text-primary-foreground" /> Drafting…</> : <><Sparkles className="h-4 w-4" /> Fill the form</>}
+              </Button>
+              <span className="text-xs text-muted-foreground">Pro and Pro Clinic · AI by Google Gemini</span>
+            </div>
+            {draftInfo?.locked && (
+              <p className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+                <Lock className="h-4 w-4 text-primary" /> {draftInfo.locked}.
+                <Link to="/plans" onClick={onClose} className="font-semibold text-primary hover:underline">See plans</Link>
+              </p>
+            )}
+            {draftInfo?.warnings?.length > 0 && (
+              <ul className="mt-3 space-y-1 rounded-xl bg-destructive/10 px-3 py-2 text-sm font-semibold text-destructive">
+                {draftInfo.warnings.map(item => <li key={item} className="flex items-start gap-2"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> {item}</li>)}
+              </ul>
+            )}
+          </div>
+
           {record && (
             <div className="rounded-2xl border border-border bg-muted/40 p-4 text-sm">
               <p className="font-semibold">{record.name} <span className="font-normal text-muted-foreground">· {patientSummary(record) || "no details yet"}</span></p>

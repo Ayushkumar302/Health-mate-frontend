@@ -20,12 +20,13 @@ export const openDocument = async (token, documentId) => {
   }
 };
 
-export const uploadDocument = async (token, { file, category, title, reportDate }) => {
+export const uploadDocument = async (token, { file, category, title, reportDate, memberId }) => {
   const form = new FormData();
   form.append("file", file);
   form.append("category", category);
   if (title) form.append("title", title);
   if (reportDate) form.append("reportDate", reportDate);
+  if (memberId) form.append("memberId", memberId);
   const res = await fetch(`${BASE_URL}/documents`, { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: form });
   const result = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(result.message || "Upload failed");

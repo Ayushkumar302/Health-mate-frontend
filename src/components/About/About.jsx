@@ -31,7 +31,8 @@ const reasons = [
 // a small "dashboard" made of UI pieces, used as the section visual
 const AboutVisual = () => (
   <div className="relative mx-auto w-full max-w-[480px]">
-    <div className="absolute -inset-6 rounded-[40px] bg-primary/5 blur-2xl" />
+    {/* glow behind the card; on phones it stays inside the screen width (no sideways scroll) */}
+    <div className="absolute -inset-y-6 inset-x-0 rounded-[40px] bg-primary/5 blur-2xl sm:-inset-6" />
     <div className="relative grid grid-cols-2 gap-4">
       <motion.div whileHover={{ y: -6 }} className="card-surface col-span-2 p-5">
         <p className="text-sm text-muted-foreground">Appointments this month</p>

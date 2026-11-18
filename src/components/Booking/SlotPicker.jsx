@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useId } from "react";
 import { motion } from "framer-motion";
 import { CalendarDays, CalendarOff, Clock } from "lucide-react";
 import { leaveLabel } from "@/utils/timeOff";
@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { BASE_URL } from "@/config";
 import ConvertTime from "@/utils/convertTime";
 
+// how far ahead a doctor can be booked; the server says when it is longer (doctors on Medora Pro)
 const BOOKING_WINDOW_DAYS = 30;
 
 // "YYYY-MM-DD" in the browser's local time
@@ -17,15 +18,18 @@ const addDays = days => {
   return date;
 };
 
-// date input + grid of the doctor's free slots on that day
-// calls onSelect({ date, time }) when a slot is picked, and onSelect(null) when the date changes
-function SlotPicker({ doctorId, selected, onSelect }) {
+// date input + grid of the doctor's free slots on that day (type: clinic / video / quick-call, only the
+// shifts of the doctor's weekly routine that offer it). Calls onSelect({ date, time }) when a slot is
+// picked, and onSelect(null) when the date changes. `empty` is shown under "no free slots" (the waitlist).
+function SlotPicker({ doctorId, selected, onSelect, type, empty }) {
+  const dateId = useId();
   const [date, setDate] = useState(toDateString(new Date()));
   const [slots, setSlots] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   // the doctor's time off covering the chosen day
   const [onLeave, setOnLeave] = useState(null);
+  const [windowDays, setWindowDays] = useState(BOOKING_WINDOW_DAYS);
 
   useEffect(() => {
     if (!date) return;
@@ -34,7 +38,7 @@ function SlotPicker({ doctorId, selected, onSelect }) {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`${BASE_URL}/doctors/${doctorId}/slots?date=${date}`);
+        const res = await fetch(`${BASE_URL}/doctors/${doctorId}/slots?date=${date}${type ? `&type=${type}` : ""}`);
         const result = await res.json();
         if (!res.ok) {
           throw new Error(result.message);
@@ -42,6 +46,7 @@ function SlotPicker({ doctorId, selected, onSelect }) {
         if (!cancelled) {
           setSlots(result.data);
           setOnLeave(result.onLeave || null);
+          if (result.windowDays) setWindowDays(result.windowDays);
         }
       } catch (err) {
         if (!cancelled) {
@@ -57,7 +62,7 @@ function SlotPicker({ doctorId, selected, onSelect }) {
     return () => {
       cancelled = true;
     };
-  }, [doctorId, date]);
+  }, [doctorId, date, type]);
 
   const handleDateChange = e => {
     setDate(e.target.value);
@@ -66,14 +71,15 @@ function SlotPicker({ doctorId, selected, onSelect }) {
 
   return (
     <div>
-      <label className="form_label flex items-center gap-2">
+      <label htmlFor={dateId} className="form_label flex items-center gap-2">
         <CalendarDays className="h-4 w-4 text-primary" /> Select date
       </label>
       <Input
+        id={dateId}
         type="date"
         value={date}
         min={toDateString(new Date())}
-        max={toDateString(addDays(BOOKING_WINDOW_DAYS))}
+        max={toDateString(addDays(windowDays))}
         onChange={handleDateChange}
       />
 
@@ -97,6 +103,12 @@ function SlotPicker({ doctorId, selected, onSelect }) {
             No free slots on this day. Try another date.
           </p>
         )}
+        {/* every slot of the day is taken: the waitlist (Plus and Plus Family) */}
+        {!loading && !error && !onLeave && slots.length > 0 && slots.every(slot => !slot.available) && (
+          <p className="mb-2 rounded-xl bg-muted/60 px-3 py-2 text-center text-xs text-muted-foreground">Fully booked on this day.</p>
+        )}
+        {!loading && !error && !onLeave && slots.length > 0 && slots.every(slot => !slot.available) && empty?.(date)}
+        {!loading && !error && !onLeave && slots.length === 0 && empty?.(date, { noHours: true })}
         {!loading && !error && slots.length > 0 && (
           <div className="grid grid-cols-3 gap-2">
             {slots.map((slot, index) => {
@@ -110,6 +122,7 @@ function SlotPicker({ doctorId, selected, onSelect }) {
                   transition={{ delay: index * 0.02 }}
                   whileTap={slot.available ? { scale: 0.94 } : undefined}
                   disabled={!slot.available}
+                  aria-pressed={isSelected}
                   onClick={() => onSelect({ date, time: slot.time })}
                   className={`h-10 rounded-xl border text-[13px] font-semibold transition-all ${
                     isSelected
